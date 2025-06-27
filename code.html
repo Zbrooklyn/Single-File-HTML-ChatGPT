@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChatGPT Mini-Client 1.0</title>
+  <meta name="description" content="A privacy-first, feature-rich, single-file client for OpenAI models.">
+  <link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;ChatGPT Mini-Client&quot;,&quot;short_name&quot;:&quot;Chat&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#ffffff&quot;,&quot;theme_color&quot;:&quot;#0ea5e9&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%230ea5e9'/%3E%3C/svg%3E&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
+
+  <!-- Content-Security-Policy -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://api.openai.com;
+                 img-src 'self' data: blob:;
+                 style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
+                 script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net;">
+
+  <!-- Libs: Tailwind, marked, DOMPurify -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
+
+  <style>
+    :root { --toast-translate-y: 120%; }
+    .sidebar { transform: translateX(-100%); transition: transform .3s ease; }
+    .sidebar.open { transform: translateX(0); }
+    textarea { overflow-y: auto; resize: none; }
+    .modal-bg { background: rgba(0,0,0,.6); }
+    .speak-btn, .copy-btn { cursor: pointer; opacity: .6; margin-left: .25rem; }
+    .speak-btn:hover, .copy-btn:hover { opacity: 1; }
+    .focus-trap:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    #toast { transform: translateY(var(--toast-translate-y)); transition: transform .3s ease; }
+    #micBtn.listening { color: #ef4444; }
+    .prose pre { position: relative; }
+    .prose .copy-btn { position: absolute; top: .5rem; right: .5rem; color: #e5e7eb; background: #374151; padding: .25rem; border-radius: .25rem; }
+    .prose .copy-btn:hover { background: #4b5563; }
+  </style>
+</head>
+<body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
+
+<!-- ───────────────── Banners & Toasts ───────────────── -->
+<div id="billingWarning" class="hidden fixed top-0 inset-x-0 bg-yellow-500 text-black text-center p-1 text-sm z-50">
+  You've reached 80% of your monthly budget.
+</div>
+<div id="toast-container" class="fixed bottom-4 right-4 z-50">
+  <div id="toast" class="bg-gray-800 dark:bg-gray-200 text-white dark:text-black py-2 px-4 rounded-lg shadow-xl"></div>
+</div>
+<div id="unlockModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-[60]">
+  <div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-sm p-6 relative shadow-lg">
+    <h2 class="text-xl font-semibold mb-4">Unlock Chats</h2>
+    <p class="text-sm mb-3">Your chats are encrypted. Enter your passphrase to unlock.</p>
+    <input id="unlockPassphrase" type="password" placeholder="Passphrase" class="w-full border rounded px-2 py-1.5 dark:bg-gray-700 dark:border-gray-600 focus-trap">
+    <button id="unlockBtn" class="w-full mt-3 bg-blue-600 text-white px-2 py-1.5 rounded focus-trap">Unlock</button>
+  </div>
+</div>
+
+<!-- ───────────────── Header ───────────────── -->
+<nav class="fixed inset-x-0 top-0 flex items-center gap-2 px-2 py-1 bg-blue-600 dark:bg-gray-800 text-white z-10"
+     style="padding-top: env(safe-area-inset-top);">
+  <button id="menuBtn" aria-expanded="false" class="p-1 focus-trap">
+    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+
+  <button id="modelBtn" aria-haspopup="dialog" class="flex items-center px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap">
+    <span id="currentModel" class="truncate max-w-[6rem]">gpt-4o</span>
+    <svg class="h-4 w-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.087l3.71-3.856a.75.75 0 011.08 1.04l-4.25 4.414a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"/></svg>
+  </button>
+
+  <span id="liveCost" class="text-xs opacity-80">…</span>
+  <span class="flex-1"></span>
+
+  <button id="themeBtn" class="px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap">🌗</button>
+  <button id="newChatBtnHeader" class="px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap">
+    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+  </button>
+  <button id="moreBtn" aria-haspopup="dialog" class="px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap">
+    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M5 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+  </button>
+</nav>
+
+<!-- ───────────────── Sidebar ───────────────── -->
+<aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-full sm:w-72 bg-white dark:bg-gray-800 shadow-lg p-4 pt-16 overflow-y-auto z-20" aria-label="Sidebar">
+  <button id="closeSidebar" class="absolute top-4 right-4 text-white focus-trap">✖</button>
+
+  <details open>
+    <summary class="font-medium cursor-pointer">Chats</summary>
+    <div class="mt-2 space-y-2">
+      <button id="newChatBtn" class="w-full bg-blue-600 text-white px-2 py-1 rounded focus-trap">+ New Chat</button>
+      <ul id="threadList" class="space-y-1"></ul>
+    </div>
+  </details>
+
+  <details open class="mt-4">
+    <summary class="font-medium cursor-pointer">Settings</summary>
+    <div class="space-y-3 mt-2">
+      <div>
+        <input id="apiKeyInput" type="password" placeholder="API Key" class="w-full border rounded px-2 py-1 dark:bg-gray-700 dark:border-gray-600 focus-trap">
+        <button id="saveKeyBtn" class="w-full mt-1 bg-blue-600 text-white px-2 py-1 rounded focus-trap">Save Key</button>
+      </div>
+      <div id="apiStatus" class="hidden text-green-500">API Key saved <button id="resetKeyBtn" class="ml-2 text-red-600 underline focus-trap">Change</button></div>
+
+      <div><label for="systemInput">System prompt</label><textarea id="systemInput" rows="2" class="w-full border rounded px-2 py-1 dark:bg-gray-700 dark:border-gray-600 focus-trap"></textarea></div>
+      <div><label for="tempInput">Temperature: <span id="tempLabel">1.0</span></label><input id="tempInput" type="range" min="0" max="1" step="0.05" value="1.0" class="w-full focus-trap"></div>
+      <label class="inline-flex items-center gap-2"><input id="ttsToggle" type="checkbox" class="accent-blue-600 focus-trap"><span>Auto-read replies</span></label>
+    </div>
+  </details>
+
+  <details class="mt-4">
+    <summary class="font-medium cursor-pointer">Billing</summary>
+    <div class="space-y-3 mt-2">
+      <div><label for="monthlyBudget">Monthly Budget ($)</label><input id="monthlyBudget" type="number" placeholder="e.g., 20" class="w-full border rounded px-2 py-1 dark:bg-gray-700 dark:border-gray-600 focus-trap"></div>
+      <p class="text-xs opacity-70">Spend this month: <span id="monthlySpend"></span></p>
+    </div>
+  </details>
+
+  <details class="mt-4">
+    <summary class="font-medium cursor-pointer">Debug Log</summary>
+    <div id="debugContent" class="mt-2 h-40 overflow-y-auto p-2 text-xs bg-gray-50 dark:bg-gray-700 rounded"></div>
+    <button id="clearDebugBtn" class="w-full mt-2 bg-red-500 text-white px-2 py-1 rounded focus-trap">Clear Debug</button>
+  </details>
+</aside>
+
+<!-- ───────────────── Chat Area ───────────────── -->
+<main class="flex-1 flex flex-col pt-16 pb-20">
+  <section id="chat" role="log" class="flex-1 overflow-y-auto p-4 space-y-4"></section>
+</main>
+
+<!-- ───────────────── Input Bar ───────────────── -->
+<div class="fixed bottom-0 inset-x-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-2 sm:p-4" style="padding-bottom: env(safe-area-inset-bottom);">
+  <div id="imagePreviews" class="flex gap-2 mb-2"></div>
+  <div class="flex gap-2 items-end">
+    <button id="attachBtn" class="p-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus-trap" title="Attach Image (Vision)">
+      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+    </button>
+    <textarea id="userInput" rows="1" placeholder="Type a message or use the mic…" class="flex-1 border rounded-lg px-3 py-2.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"></textarea>
+    <button id="micBtn" class="p-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus-trap" title="Voice Input">
+      <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zM17 11h-1c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92z"/></svg>
+    </button>
+    <button id="sendBtn" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center focus-trap" disabled>
+      <span id="sendText">Send</span>
+      <svg id="spinner" class="h-5 w-5 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V8z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ───────────────── Modals ───────────────── -->
+<div id="modelModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-30" aria-modal="true" role="dialog">
+  <div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-sm p-4 relative shadow-lg max-h-[80vh] overflow-y-auto">
+    <button id="closeModelModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button>
+    <h2 class="text-lg font-semibold text-center mb-3">Switch model</h2>
+    <div id="modelList" class="space-y-2"></div>
+  </div>
+</div>
+
+<div id="moreModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-40" aria-modal="true" role="dialog">
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-11/12 max-w-md relative shadow-lg">
+    <button id="closeMoreModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button>
+    <h2 class="text-xl font-semibold mb-4">Menu & Data</h2>
+    <p id="costInfo" class="text-sm opacity-80 mb-4">$0.0000</p>
+    <div class="grid grid-cols-2 gap-2 text-center">
+      <button id="exportJsonBtn" class="bg-gray-200 dark:bg-gray-700 p-2 rounded-lg focus-trap">Export JSON</button>
+      <button id="exportMdBtn" class="bg-gray-200 dark:bg-gray-700 p-2 rounded-lg focus-trap">Export MD</button>
+      <button id="importJsonBtn" class="bg-gray-200 dark:bg-gray-700 p-2 rounded-lg focus-trap">Import JSON</button>
+      <button id="securityBtn" class="bg-gray-200 dark:bg-gray-700 p-2 rounded-lg focus-trap">Set Passphrase</button>
+    </div>
+    <button id="openAbout" class="underline text-blue-600 mt-4 block text-center focus-trap">About this project</button>
+  </div>
+</div>
+
+<div id="aboutModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-50" aria-modal="true" role="dialog">
+  <div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-lg p-6 relative shadow-lg overflow-y-auto max-h-[85vh]">
+    <button id="closeAboutModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button>
+    <div class="prose prose-sm dark:prose-invert max-w-none">
+        <h2>About ChatGPT Mini-Client 1.0</h2>
+        <p>A fully client-side, privacy-first interface for OpenAI models. No data ever leaves your browser except for calls to the official API. All data is stored locally in your browser.</p>
+        <h3>Features</h3>
+        <ul>
+            <li><strong>True Streaming:</strong> Real-time, character-by-character completions.</li>
+            <li><strong>Vision Ready:</strong> Attach images to ask questions about them.</li>
+            <li><strong>Voice Input:</strong> Use your microphone to dictate messages.</li>
+            <li><strong>Cost Tracking:</strong> Per-message and per-thread cost calculation with monthly budget alerts.</li>
+            <li><strong>Reliable:</strong> Automatic retry with exponential backoff for API errors (429/500s).</li>
+            <li><strong>Data Portability:</strong> Export/import all chats to JSON or the current chat to Markdown.</li>
+            <li><strong>Secure:</strong> Optional client-side encryption-at-rest for your LocalStorage data.</li>
+            <li><strong>PWA Ready:</strong> Installable on your device for an app-like experience.</li>
+            <li><strong>Full-Featured:</strong> Dark/light themes, Markdown rendering, code block copying, text-to-speech, persistent settings, and more.</li>
+        </ul>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="importFileInput" class="hidden" accept=".json,application/json">
+<input type="file" id="attachFileInput" class="hidden" accept="image/*">
+
+<!-- ───────────────── Script ───────────────── -->
+<script>
+// --- Service Worker Registration for PWA ---
+if ('serviceWorker' in navigator) {
+    const swJS = `
+        self.addEventListener('install', (e) => { e.waitUntil(caches.open('chat-static-v1').then(c => c.add('/'))); });
+        self.addEventListener('fetch', (e) => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); });
+    `;
+    const swBlob = new Blob([swJS], {type: 'application/javascript'});
+    const swURL = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swURL).catch(e => console.error('Service Worker registration failed:', e));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+/* ─── Globals & Helpers ─────────────────────────────── */
+const $  = id  => document.getElementById(id);
+const md = txt => {
+    const rawHTML = marked.parse(txt, { gfm: true, breaks: true, smartLists: true });
+    // Sanitize and then add copy buttons to pre tags
+    const sanitized = DOMPurify.sanitize(rawHTML);
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = sanitized;
+    wrapper.querySelectorAll('pre').forEach(pre => {
+        const code = pre.querySelector('code');
+        if (code) {
+            const copyBtn = document.createElement('button');
+            copyBtn.innerHTML = `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 4h8a2 2 0 002-2V8a2 2 0 00-2-2h-2m-4 4a2 2 0 002 2h2a2 2 0 002-2m-6 0v-2a2 2 0 012-2h2a2 2 0 012 2v2"></path></svg>`;
+            copyBtn.className = 'copy-btn focus-trap';
+            copyBtn.title = 'Copy code';
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(code.innerText);
+                showToast('Copied to clipboard!');
+            };
+            pre.appendChild(copyBtn);
+        }
+    });
+    return wrapper.innerHTML;
+};
+
+function log(label, obj) {
+  const dbg = $('debugContent'); if (!dbg) return;
+  const el = document.createElement('div');
+  el.innerHTML = `<strong>${label}:</strong> <pre class="whitespace-pre-wrap">${typeof obj === 'object' ? JSON.stringify(obj, null, 2) : obj}</pre>`;
+  dbg.appendChild(el); dbg.scrollTop = dbg.scrollHeight;
+  console.log(label, obj);
+}
+$('clearDebugBtn').onclick = () => $('debugContent').innerHTML = '';
+
+let toastTimer;
+function showToast(message) {
+    clearTimeout(toastTimer);
+    const toast = $('toast');
+    toast.textContent = message;
+    document.documentElement.style.setProperty('--toast-translate-y', '0');
+    toastTimer = setTimeout(() => {
+        document.documentElement.style.setProperty('--toast-translate-y', '120%');
+    }, 3000);
+}
+
+/* ─── Autosize Textarea & Send Button State ────────────────── */
+const ta = $('userInput');
+const sendBtn = $('sendBtn');
+const sendText = $('sendText');
+const spinner = $('spinner');
+let attachedImages = [];
+
+const updateSendButton = () => {
+    const hasText = ta.value.trim().length > 0;
+    const hasImages = attachedImages.length > 0;
+    sendBtn.disabled = !hasText && !hasImages;
+};
+
+ta.addEventListener('input', () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 256) + 'px';
+    updateSendButton();
+});
+
+/* ─── Pricing ─────────────────────────────── */
+const tariff = {
+  'gpt-4o': [0.005, 0.015], 'gpt-4o-mini': [0.00015, 0.0006], 'gpt-4-turbo': [0.01, 0.03],
+  'gpt-4': [0.03, 0.06], 'gpt-3.5-turbo': [0.0005, 0.0015]
+};
+const defaultRate = [0.01, 0.03]; // Fallback
+const visionRatePerImage = { low: 0.00085, high: 0.0017 }; // Per image cost for high/low detail
+
+const tokens = s => Math.ceil((s || '').length / 4);
+const rateFor = m => tariff[Object.keys(tariff).find(k => m.startsWith(k))] || defaultRate;
+const costOf = (m, inT, outT, imgCount = 0) => {
+    const [rI, rO] = rateFor(m);
+    // A simple heuristic for image cost. Assumes high detail for now.
+    const imageCost = imgCount * visionRatePerImage.high;
+    return (inT / 1000 * rI) + (outT / 1000 * rO) + imageCost;
+};
+
+/* ─── Persistent State & Settings ───────────────────── */
+let state = {
+    apiKey: '', autoRead: false, theme: 'light', model: 'gpt-4o',
+    temperature: 1.0, threads: [], currentThread: null,
+    monthlyBudget: null, monthlySpend: {}, encryptionPhrase: null,
+    isEncrypted: false, cryptoKey: null
+};
+
+// --- Main loader ---
+function loadState() {
+    const s = localStorage.getItem('appState');
+    if (!s) {
+        // First run, set defaults
+        document.documentElement.classList.toggle('dark', state.theme === 'dark');
+        $('ttsToggle').checked = state.autoRead;
+        $('tempInput').value = state.temperature;
+        $('tempLabel').textContent = state.temperature;
+        $('currentModel').textContent = state.model;
+        renderThreads();
+        return;
+    }
+    
+    let loadedState;
+    try {
+        loadedState = JSON.parse(s);
+    } catch {
+        // If parsing fails, it might be encrypted
+        state.isEncrypted = true;
+        $('unlockModal').classList.replace('hidden', 'flex');
+        return;
+    }
+    
+    // If it parsed, it's not encrypted
+    state = { ...state, ...loadedState };
+    state.isEncrypted = false;
+    
+    // Apply loaded state to UI
+    apiKey = state.apiKey;
+    document.documentElement.classList.toggle('dark', state.theme === 'dark');
+    $('ttsToggle').checked = state.autoRead;
+    $('tempInput').value = state.temperature;
+    $('tempLabel').textContent = state.temperature;
+    $('currentModel').textContent = state.model;
+    $('monthlyBudget').value = state.monthlyBudget || '';
+    keyUI(!!apiKey);
+    
+    if (!state.currentThread && state.threads.length > 0) state.currentThread = state.threads[0].id;
+
+    renderThreads();
+    loadThread();
+    checkBudget();
+}
+
+// --- Main saver ---
+async function saveState() {
+    let stateToSave = { ...state };
+    delete stateToSave.cryptoKey; // Don't save the raw key
+
+    let dataToStore;
+    if (state.isEncrypted && state.cryptoKey) {
+        dataToStore = await encrypt(JSON.stringify(stateToSave), state.cryptoKey);
+    } else {
+        dataToStore = JSON.stringify(stateToSave);
+    }
+    localStorage.setItem('appState', dataToStore);
+    log('State saved.', state.isEncrypted ? '(Encrypted)' : '(Plaintext)');
+}
+
+// --- Theme ---
+$('themeBtn').onclick = () => {
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.classList.toggle('dark', state.theme === 'dark');
+    saveState();
+};
+
+// --- Sidebar ---
+$('menuBtn').onclick = () => $('sidebar').classList.add('open');
+$('closeSidebar').onclick = () => $('sidebar').classList.remove('open');
+
+// --- API Key ---
+let apiKey = state.apiKey;
+function keyUI(has) { $('apiStatus').classList.toggle('hidden', !has); ['apiKeyInput', 'saveKeyBtn'].forEach(id => $(id).classList.toggle('hidden', has)); }
+$('saveKeyBtn').onclick = () => {
+    const k = $('apiKeyInput').value.trim(); if (!k) return showToast('API key cannot be blank');
+    apiKey = k; state.apiKey = k; saveState(); keyUI(true); showToast('API Key saved!');
+};
+$('resetKeyBtn').onclick = () => { apiKey = ''; state.apiKey = ''; saveState(); keyUI(false); showToast('API Key removed.'); };
+
+// --- Other Settings ---
+$('ttsToggle').onchange = e => { state.autoRead = e.target.checked; saveState(); };
+$('tempInput').oninput = e => { state.temperature = +e.target.value; $('tempLabel').textContent = e.target.value; saveState(); };
+$('monthlyBudget').onchange = e => { state.monthlyBudget = +e.target.value || null; saveState(); checkBudget(); };
+
+/* ─── Encryption ─────────────────────────────── */
+async function deriveKey(passphrase, salt) {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
+    );
+}
+
+async function encrypt(data, key) {
+    const encoder = new TextEncoder();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const derivedKey = await deriveKey(key, salt); // Here 'key' is the passphrase
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, derivedKey, encoder.encode(data));
+    // Combine salt, iv, and ciphertext for storage
+    const buffer = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+    buffer.set(salt, 0);
+    buffer.set(iv, salt.length);
+    buffer.set(new Uint8Array(ciphertext), salt.length + iv.length);
+    return btoa(String.fromCharCode.apply(null, buffer)); // to base64
+}
+
+async function decrypt(encryptedData, key) { // Here 'key' is the passphrase
+    const data = atob(encryptedData);
+    const buffer = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) buffer[i] = data.charCodeAt(i);
+
+    const salt = buffer.slice(0, 16);
+    const iv = buffer.slice(16, 28);
+    const ciphertext = buffer.slice(28);
+    
+    const derivedKey = await deriveKey(key, salt);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, derivedKey, ciphertext);
+    return new TextDecoder().decode(decrypted);
+}
+
+$('securityBtn').onclick = () => {
+    const phrase = prompt('Set an encryption passphrase. This will encrypt all your data. Leave blank to disable encryption.');
+    if (phrase === null) return; // User cancelled
+    if (phrase) {
+        state.encryptionPhrase = phrase; // For deriving key later
+        state.isEncrypted = true;
+        deriveKey(phrase, crypto.getRandomValues(new Uint8Array(16))).then(key => {
+            state.cryptoKey = key;
+            saveState().then(() => showToast('Encryption enabled!'));
+        });
+    } else {
+        state.encryptionPhrase = null;
+        state.isEncrypted = false;
+        state.cryptoKey = null;
+        saveState().then(() => showToast('Encryption disabled.'));
+    }
+    $('moreModal').classList.replace('flex', 'hidden');
+};
+
+$('unlockBtn').onclick = async () => {
+    const phrase = $('unlockPassphrase').value;
+    const encryptedString = localStorage.getItem('appState');
+    try {
+        const decryptedString = await decrypt(encryptedString, phrase);
+        const loadedState = JSON.parse(decryptedString);
+        state = { ...state, ...loadedState };
+        state.cryptoKey = await deriveKey(phrase, atob(encryptedString).slice(0, 16)); // Re-derive key for session
+        state.isEncrypted = true;
+        
+        $('unlockModal').classList.replace('flex', 'hidden');
+        showToast('Chats unlocked!');
+        loadState(); // Re-run loader with decrypted data
+    } catch (e) {
+        log('Decryption Error', e);
+        showToast('Wrong passphrase. Please try again.');
+        $('unlockPassphrase').value = '';
+    }
+};
+
+/* ─── Threads ─────────────────────────────── */
+function renderThreads() {
+  const ul = $('threadList'); ul.innerHTML = '';
+  (state.threads || []).forEach(t => {
+    const li = document.createElement('li');
+    li.className = 'p-2 rounded flex items-center justify-between ' + (t.id === state.currentThread ? 'bg-blue-100 dark:bg-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700');
+    li.innerHTML = `<span class="flex-1 truncate">${t.title}</span>
+                  <span class="text-xs opacity-70 mr-1">$${(t.cost || 0).toFixed(4)}</span>
+                  <button class="rename p-1 text-xs focus-trap" title="Rename">✎</button>
+                  <button class="del p-1 text-xs text-red-600 focus-trap" title="Delete">🗑</button>`;
+    li.onclick = e => { if (e.target.closest('button')) return; state.currentThread = t.id; saveState(); renderThreads(); loadThread(); $('sidebar').classList.remove('open'); };
+    li.querySelector('.rename').onclick = e => { e.stopPropagation(); const n = prompt('Rename chat', t.title); if (n) { t.title = n; saveState(); renderThreads(); } };
+    li.querySelector('.del').onclick = e => { e.stopPropagation(); if (confirm('Delete this chat?')) { state.threads = state.threads.filter(x => x.id !== t.id); if (state.currentThread === t.id) state.currentThread = state.threads[0]?.id || null; saveState(); renderThreads(); loadThread(); } };
+    ul.appendChild(li);
+  });
+}
+
+function newThread() {
+  const id = Date.now().toString();
+  const newThread = { id, title: 'New Chat', messages: [], cost: 0, systemPrompt: '', temperature: 1.0 };
+  state.threads.unshift(newThread);
+  state.currentThread = id;
+  saveState(); renderThreads(); loadThread();
+  showToast('New chat started.');
+}
+$('newChatBtn').onclick = newThread; $('newChatBtnHeader').onclick = newThread;
+
+/* ─── Chat Rendering ─────────────────────── */
+function loadThread() {
+  $('chat').innerHTML = '';
+  const th = state.threads.find(x => x.id === state.currentThread);
+  if (!th) { updateCostUI(0, 0); return; }
+  
+  // Set per-thread settings
+  $('systemInput').value = th.systemPrompt || '';
+  $('tempInput').value = th.temperature || 1.0;
+  $('tempLabel').textContent = $('tempInput').value;
+
+  th.messages.forEach(m => addMsg(m.role, m.content, false));
+  updateCostUI(0, th.cost || 0);
+  checkBudget();
+}
+
+$('systemInput').onchange = (e) => {
+    const th = state.threads.find(x => x.id === state.currentThread);
+    if(th) { th.systemPrompt = e.target.value; saveState(); }
+};
+$('tempInput').onchange = (e) => {
+    const th = state.threads.find(x => x.id === state.currentThread);
+    if(th) { th.temperature = +e.target.value; saveState(); }
+};
+
+function addMsg(role, content, scroll = true) {
+    const chat = $('chat');
+    const div = document.createElement('div');
+    const isUser = role === 'user';
+    let innerHTML;
+
+    if (isUser) {
+        let textContent = '';
+        let imageHTML = '';
+        if (Array.isArray(content)) {
+            content.forEach(part => {
+                if (part.type === 'text') textContent += part.text;
+                if (part.type === 'image_url') imageHTML += `<img src="${part.image_url.url}" class="max-w-xs rounded-lg mt-2" alt="User attachment">`;
+            });
+        } else { textContent = content; }
+        innerHTML = `<strong>You:</strong> <div class="prose dark:prose-invert max-w-none">${md(textContent)}</div> ${imageHTML}`;
+    } else { // Assistant
+        innerHTML = `<div class="prose dark:prose-invert max-w-none"><strong>ChatGPT:</strong> <span>${md(content)}</span></div>
+                     <div class="mt-1"><span class="speak-btn" title="Speak">🔊</span></div>`;
+    }
+
+    div.innerHTML = innerHTML;
+
+    if (!isUser) {
+        div.querySelector('.speak-btn').onclick = () => {
+            if ('speechSynthesis' in window) {
+                speechSynthesis.cancel();
+                speechSynthesis.speak(new SpeechSynthesisUtterance(Array.isArray(content) ? content.find(p => p.type === 'text')?.text || '' : content));
+            }
+        };
+    }
+    chat.appendChild(div);
+    if (scroll) chat.scrollTop = chat.scrollHeight;
+}
+
+function updateCostUI(last, total) {
+  $('costInfo').textContent = `+$${last.toFixed(4)} • Total $${total.toFixed(4)}`;
+  $('liveCost').textContent = `≈$${total.toFixed(4)}`;
+  
+  // Update monthly spend display
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+  const totalSpend = Object.values(state.monthlySpend).reduce((a, b) => a + b, 0);
+  $('monthlySpend').textContent = `$${(state.monthlySpend[monthKey] || 0).toFixed(4)}`;
+}
+
+function checkBudget() {
+    const budget = state.monthlyBudget;
+    if (!budget || budget <= 0) {
+        $('billingWarning').classList.add('hidden');
+        return;
+    }
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+    const spend = state.monthlySpend[monthKey] || 0;
+    if (spend >= budget * 0.8) {
+        $('billingWarning').classList.remove('hidden');
+        $('billingWarning').textContent = `You've used ${((spend/budget)*100).toFixed(0)}% of your $${budget} monthly budget.`;
+    } else {
+        $('billingWarning').classList.add('hidden');
+    }
+}
+
+/* ─── Keyboard shortcuts ─────────────────── */
+document.addEventListener('keydown', e => {
+  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+      if (e.key === 'Escape') document.activeElement.blur();
+  }
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); ta.focus(); }
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); $('themeBtn').click(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !sendBtn.disabled) { e.preventDefault(); sendBtn.click(); }
+  if (e.key === 'Escape') { ['modelModal', 'moreModal', 'aboutModal'].forEach(id => { const el = $(id); if (!el.classList.contains('hidden')) el.classList.replace('flex', 'hidden'); }); }
+});
+
+/* ─── Voice Input ──────────────────────── */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition;
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    
+    recognition.onresult = event => {
+        let interim_transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                ta.value += event.results[i][0].transcript;
+            } else {
+                interim_transcript += event.results[i][0].transcript;
+            }
+        }
+        ta.value = ta.value.replace(interim_transcript, '');
+        ta.value += interim_transcript;
+        ta.dispatchEvent(new Event('input'));
+    };
+    recognition.onend = () => { $('micBtn').classList.remove('listening'); };
+    recognition.onerror = e => { log('Speech Recognition Error', e.error); showToast(`Mic error: ${e.error}`); $('micBtn').classList.remove('listening'); };
+
+    $('micBtn').onclick = () => {
+        if ($('micBtn').classList.contains('listening')) {
+            recognition.stop();
+        } else {
+            recognition.start();
+            $('micBtn').classList.add('listening');
+        }
+    };
+} else {
+    $('micBtn').style.display = 'none';
+}
+
+/* ─── Image Attachment ───────────────────── */
+$('attachBtn').onclick = () => $('attachFileInput').click();
+$('attachFileInput').onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (re) => {
+            const dataUrl = re.target.result;
+            attachedImages.push(dataUrl);
+            renderPreviews();
+            updateSendButton();
+        };
+        reader.readAsDataURL(file);
+    }
+    e.target.value = null; // Reset file input
+};
+
+function renderPreviews() {
+    const container = $('imagePreviews');
+    container.innerHTML = '';
+    attachedImages.forEach((src, index) => {
+        const div = document.createElement('div');
+        div.className = 'relative';
+        div.innerHTML = `<img src="${src}" class="h-16 w-16 object-cover rounded-md">
+                         <button class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">&times;</button>`;
+        div.querySelector('button').onclick = () => {
+            attachedImages.splice(index, 1);
+            renderPreviews();
+            updateSendButton();
+        };
+        container.appendChild(div);
+    });
+}
+
+/* ─── Send / Stream with Retry ────────────────── */
+async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok && (response.status === 429 || response.status >= 500) && retries > 0) {
+            log(`Retryable error ${response.status}. Retrying in ${delay/1000}s...`);
+            await new Promise(res => setTimeout(res, delay));
+            return fetchWithRetry(url, options, retries - 1, delay * 2);
+        }
+        return response;
+    } catch (error) {
+        if (retries > 0) {
+            log(`Fetch error. Retrying in ${delay/1000}s...`, error);
+            await new Promise(res => setTimeout(res, delay));
+            return fetchWithRetry(url, options, retries - 1, delay * 2);
+        }
+        throw error;
+    }
+}
+
+$('sendBtn').onclick = sendMsg;
+ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !sendBtn.disabled) { e.preventDefault(); sendMsg(); } });
+
+async function sendMsg() {
+  if (!apiKey) { showToast('Set your API key first'); return; }
+  if (!state.currentThread) newThread();
+
+  const txt = ta.value.trim();
+  if (!txt && attachedImages.length === 0) return;
+
+  const th = state.threads.find(x => x.id === state.currentThread);
+  if (!th) return;
+
+  spinner.classList.remove('hidden');
+  sendText.classList.add('hidden');
+  sendBtn.disabled = true;
+
+  // Construct user message payload
+  let userMessageContent = [];
+  if (txt) userMessageContent.push({ type: 'text', text: txt });
+  attachedImages.forEach(url => userMessageContent.push({ type: 'image_url', image_url: { url } }));
+  if (userMessageContent.length === 1 && userMessageContent[0].type === 'text') {
+      userMessageContent = userMessageContent[0].text; // Keep simple string format if no images
+  }
+
+  addMsg('user', userMessageContent);
+  th.messages.push({ role: 'user', content: userMessageContent });
+  
+  if (th.title === 'New Chat') th.title = txt ? txt.slice(0, 30) : 'Image query';
+  
+  ta.value = ''; attachedImages = []; renderPreviews(); updateSendButton();
+  ta.dispatchEvent(new Event('input')); // Recalculate size
+
+  const assistContainer = document.createElement('div');
+  assistContainer.className = 'prose dark:prose-invert max-w-none';
+  assistContainer.innerHTML = '<strong>ChatGPT:</strong> <span class="assistAcc"></span><div class="mt-1"><span class="speak-btn" title="Speak">🔊</span></div>';
+  $('chat').appendChild(assistContainer);
+  $('chat').scrollTop = $('chat').scrollHeight;
+  $('liveCost').textContent = '⏳';
+
+  const model = $('currentModel').textContent;
+  const systemPrompt = th.systemPrompt;
+  const messagesForAPI = systemPrompt
+      ? [{ role: 'system', content: systemPrompt }, ...th.messages]
+      : th.messages;
+
+  const inT = tokens(JSON.stringify(messagesForAPI));
+  let outT = 0, acc = '';
+
+  try {
+    const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model, messages: messagesForAPI, temperature: th.temperature, stream: true })
+    });
+    if (!res.ok) throw new Error(`API Error: ${res.status} ${res.statusText} - ${(await res.json()).error?.message || ''}`);
+    
+    const rd = res.body.getReader(); const dec = new TextDecoder(); let buf = '', done = false;
+    while (!done) {
+      const { value, done: d } = await rd.read(); done = d;
+      buf += dec.decode(value || new Uint8Array(), { stream: !done });
+      while (buf.includes('\n\n')) {
+        const blk = buf.slice(0, buf.indexOf('\n\n')); buf = buf.slice(buf.indexOf('\n\n') + 2);
+        const line = blk.trim(); if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim(); if (payload === '[DONE]') break;
+        const delta = JSON.parse(payload).choices[0].delta.content || ''; acc += delta; outT += tokens(delta);
+        assistContainer.querySelector('.assistAcc').innerHTML = md(acc);
+        $('chat').scrollTop = $('chat').scrollHeight;
+      }
+    }
+    
+    assistContainer.querySelector('.speak-btn').onclick = () => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(acc)); }};
+    
+    const c = costOf(model, inT, outT, Array.isArray(userMessageContent) ? userMessageContent.filter(p => p.type === 'image_url').length : 0);
+    th.cost = (th.cost || 0) + c;
+    th.messages.push({ role: 'assistant', content: acc });
+
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+    state.monthlySpend[monthKey] = (state.monthlySpend[monthKey] || 0) + c;
+
+    saveState(); renderThreads(); updateCostUI(c, th.cost);
+  } catch (err) {
+    assistContainer.querySelector('.assistAcc').innerHTML += ` ⚠️ <span class="text-red-500">${err.message}</span>`;
+    log('Error', err);
+    updateCostUI(0, th.cost);
+  } finally {
+    spinner.classList.add('hidden');
+    sendText.classList.remove('hidden');
+    updateSendButton();
+  }
+}
+
+/* ─── Model & More Modals ────────────────── */
+const modals = ['modelModal', 'moreModal', 'aboutModal'];
+modals.forEach(id => {
+    const modal = $(id);
+    const closeBtn = $(`close${id.charAt(0).toUpperCase() + id.slice(1)}`);
+    const openBtn = $(id.replace('Modal', 'Btn'));
+    if (openBtn) openBtn.onclick = () => modal.classList.replace('hidden', 'flex');
+    if (closeBtn) closeBtn.onclick = () => modal.classList.replace('flex', 'hidden');
+});
+
+async function populateModels() {
+  const box = $('modelList'); box.innerHTML = 'Loading…';
+  let list = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'];
+  if (apiKey) { try { const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + apiKey } }); list = (await r.json()).data.map(m => m.id).filter(id => /^gpt-/.test(id)).sort(); } catch (e) { log('Model fetch failed', e); } }
+  box.innerHTML = '';
+  list.forEach(id => {
+    const btn = document.createElement('button');
+    btn.className = 'block w-full text-left px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus-trap';
+    btn.textContent = id + (id === state.model ? ' ✅' : '');
+    btn.onclick = () => { state.model = id; $('currentModel').textContent = id; saveState(); populateModels(); };
+    box.appendChild(btn);
+  });
+}
+
+$('modelBtn').onclick = () => { $('modelModal').classList.replace('hidden', 'flex'); populateModels(); };
+$('openAbout').onclick = () => { $('moreModal').classList.replace('flex', 'hidden'); $('aboutModal').classList.replace('hidden', 'flex'); };
+
+/* ─── Data Export/Import ───────────────── */
+$('exportJsonBtn').onclick = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.threads, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `chatgpt_threads_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    showToast('Exported all threads to JSON.');
+};
+
+$('exportMdBtn').onclick = () => {
+    const th = state.threads.find(x => x.id === state.currentThread);
+    if (!th) return showToast('No active thread to export.');
+    let mdContent = `# ${th.title}\n\n`;
+    th.messages.forEach(m => {
+        mdContent += `**${m.role === 'user' ? 'You' : 'ChatGPT'}**:\n\n`;
+        let textContent = m.content;
+        if(Array.isArray(m.content)) {
+            textContent = m.content.find(p => p.type === 'text')?.text || '[Image Content]';
+        }
+        mdContent += `${textContent}\n\n---\n\n`;
+    });
+    const dataStr = "data:text/markdown;charset=utf-8," + encodeURIComponent(mdContent);
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${th.title.replace(/ /g, '_')}.md`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    showToast('Exported current thread to Markdown.');
+};
+
+$('importJsonBtn').onclick = () => $('importFileInput').click();
+$('importFileInput').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (re) => {
+        try {
+            const importedThreads = JSON.parse(re.target.result);
+            if (!Array.isArray(importedThreads) || !importedThreads.every(t => t.id && t.title && t.messages)) {
+                throw new Error('Invalid file format.');
+            }
+            if (confirm(`This will overwrite your existing chats with ${importedThreads.length} new threads. Continue?`)) {
+                state.threads = importedThreads;
+                state.currentThread = importedThreads[0]?.id || null;
+                saveState();
+                renderThreads();
+                loadThread();
+                showToast('Import successful!');
+            }
+        } catch (err) {
+            log('Import Error', err);
+            showToast(`Import failed: ${err.message}`);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = null;
+};
+
+/* ─── Initial Load ───────────────────────── */
+loadState();
+});
+</script>
+</body>
+</html>
