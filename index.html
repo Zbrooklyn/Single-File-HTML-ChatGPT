@@ -13,7 +13,7 @@
         content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
                  img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
                  style-src 'self' 'unsafe-inline' https://*.tailwindcss.com;
-                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net blob:;
+                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net https://*.tailwindcss.com https://cdnjs.cloudflare.com blob:;
                  worker-src 'self' blob:; media-src 'self' blob:;">
 
   <!-- Libs: Tailwind, marked, DOMPurify, tiktoken, jsPDF, html2canvas -->
@@ -23,7 +23,7 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init"; window.tiktoken = tiktoken;</script>
+  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/init.js"; window.tiktoken = tiktoken;</script>
 
   <style>
     :root { --toast-translate-y: 120%; }
@@ -43,6 +43,9 @@
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
+
+-----
+
 
 <body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
 
@@ -80,12 +83,19 @@
   <div class="mt-6 pt-4 border-t"><p class="text-xs text-gray-500">ChatGPT Polished Client v5.0 | <button id="tosOpener" class="underline loc" data-loc="tos_privacy">Terms of Service & Privacy</button></p></div>
 </template>
 
+
+
+
 <script type="module">
 // Initialize Libraries
 const { jsPDF } = window.jspdf;
 const { html2canvas } = window;
 
-// THE DOMContentLoaded WRAPPER WAS REMOVED. THE SCRIPT NOW RUNS DIRECTLY.
+// -----------------------------------------------------------------
+// CHANGE: The "DOMContentLoaded" event listener wrapper was removed
+// from here. It is not needed with <script type="module"> and was
+// preventing the code from running.
+// -----------------------------------------------------------------
 
 /* ─── Globals, State & Helpers ────────────────── */
 const $ = id => document.getElementById(id);
@@ -99,9 +109,20 @@ const L = {
 };
 
 let state = {
-    apiKey: '', theme: 'light', model: 'gpt-4o', temperature: 1.0, autoRead: false,
-    threads: [], currentThread: null, modelVisibility: {}, prompts: [],
-    isEncrypted: false, encryptionKey: null, ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en'
+    apiKey: '',
+    theme: 'light',
+    model: 'gpt-4o',
+    temperature: 1.0,
+    autoRead: false,
+    threads: [],
+    currentThread: null,
+    modelVisibility: {},
+    prompts: [],
+    isEncrypted: false,
+    encryptionKey: null,
+    ttsProvider: 'browser',
+    openaiVoice: 'alloy',
+    language: 'en'
 };
 let tokenizer, currentAudioPlayer, attachedImages = [];
 
@@ -114,7 +135,7 @@ async function initializeApp() {
     await loadState();
     // Attempt to load tokenizer in the background
     try {
-        await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
+        await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/tiktoken_bg.wasm", import.meta.url), imports));
         tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
     } catch (e) { console.error("Tokenizer failed to load. Using approximation.", e); }
 }
@@ -173,6 +194,9 @@ function updateCostUI(last, total) { $('liveCost').textContent = `≈$${total.to
 async function regenerateResponse(assistantMsgIndex) { const th = state.threads.find(x => x.id === state.currentThread); if (!th || assistantMsgIndex === 0) return; th.cost -= (th.messages[assistantMsgIndex].cost || 0); th.messages.splice(assistantMsgIndex); loadThread(); await sendMsg(th.messages[th.messages.length - 1].content, true); }
 function handleFileAttachment(e) { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { attachedImages.push({ data: re.target.result }); renderImagePreviews(); updateSendButton(); }; reader.readAsDataURL(file); } e.target.value = null; }
 function renderImagePreviews() { const container = $('imagePreviews'); container.innerHTML = ''; attachedImages.forEach((img, index) => { const div = document.createElement('div'); div.className = 'relative'; div.innerHTML = `<img src="${img.data}" class="h-16 w-16 object-cover rounded-md"><button class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">×</button>`; div.querySelector('button').onclick = () => { attachedImages.splice(index, 1); renderImagePreviews(); updateSendButton(); }; container.appendChild(div); }); }
+
+
+  ------
 
 /* ─── API & Audio ────────────────── */
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) { try { const res = await fetch(url, options); if (!res.ok && (res.status === 429 || res.status >= 500) && retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } return res; } catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } throw err; } }
@@ -311,7 +335,9 @@ async function toggleTTS(text, btn) {
     }
 }
 
-/* ─── Modals, Settings & Data I/O ────────────────── */
+
+
+  /* ─── Modals, Settings & Data I/O ────────────────── */
 function setupModal(modalId, openBtnId, beforeOpen) { const openBtn = $(openBtnId); if(openBtn) openBtn.onclick = () => { if (beforeOpen) beforeOpen(); modalAction(modalId, 'open'); }; $(`close${modalId.charAt(0).toUpperCase() + modalId.slice(1)}`).onclick = () => modalAction(modalId, 'close'); }
 setupModal('modelModal', 'modelBtn', populateModels);
 setupModal('settingsModal', 'settingsOpener', renderSettings);
@@ -354,6 +380,10 @@ function setupDataButtons() {
 function renderPrompts() { const listDiv = $('promptList'); listDiv.innerHTML = ''; (state.prompts || []).forEach((p, i) => { const div = document.createElement('div'); div.className = 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center'; div.innerHTML = `<span>${p.name}</span><div class="flex gap-1"><button class="use-prompt bg-blue-500 text-white text-xs px-2 py-1 rounded">Use</button><button class="del-prompt bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button></div>`; div.querySelector('.use-prompt').onclick = () => { ta.value = p.text; modalAction('promptLibraryModal', 'close'); updateSendButton(); }; div.querySelector('.del-prompt').onclick = () => { state.prompts.splice(i, 1); saveState(); renderPrompts(); }; listDiv.appendChild(div); }); }
 $('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(), text = ta.value.trim(); if (name && text) { if(!state.prompts) state.prompts = []; state.prompts.push({ name, text }); $('newPromptName').value = ''; saveState(); renderPrompts(); } };
 
+// -----------------------------------------------------------------
+// CHANGE: The closing "});" for the event listener was removed
+// from here.
+// -----------------------------------------------------------------
 </script>
 </body>
 </html>
