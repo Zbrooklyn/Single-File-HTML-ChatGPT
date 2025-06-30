@@ -1,433 +1,314 @@
+<!-- FILE: chat_client_final_stable.html -->
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth h-full">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ChatGPT Advanced Client</title>
-  <meta name="description" content="An advanced, single-file, privacy-first client for OpenAI models.">
-  <link rel="manifest" href="data:application/manifest+json,{"name":"ChatGPT Advanced","short_name":"Chat","start_url":".","display":"standalone","background_color":"#111827","theme_color":"#2563eb","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}">
+  <title>ChatGPT Polished Client</title>
+  <meta name="description" content="A feature-complete, privacy-first, single-file client for OpenAI models.">
+  <link rel="manifest" href="data:application/manifest+json,{"name":"ChatGPT Polished","short_name":"Chat","start_url":".","display":"standalone","background_color":"#111827","theme_color":"#2563eb","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}">
 
   <!-- Content-Security-Policy -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
-                 img-src 'self' data: blob:;
+                 img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
                  style-src 'self' 'unsafe-inline' https://*.tailwindcss.com;
                  script-src 'self' 'unsafe-inline' https://*.tailwindcss.com https://*.jsdelivr.net blob:;
-                 worker-src 'self' blob:;">
+                 worker-src 'self' blob:; media-src 'self' blob:;">
 
-  <!-- Libs: Tailwind, marked, DOMPurify, tiktoken -->
-  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <!-- Libs: Tailwind, marked, DOMPurify, tiktoken, jsPDF, html2canvas -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography,forms"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
-  <script type="module">
-    import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init";
-    window.tiktoken = tiktoken;
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init"; window.tiktoken = tiktoken;</script>
 
   <style>
+    :root { --toast-translate-y: 120%; }
+    html { scroll-behavior: smooth; }
     .sidebar { transform: translateX(-100%); transition: transform .3s ease; }
     .sidebar.open { transform: translateX(0); }
     textarea { overflow-y: auto; resize: none; }
-    .modal-bg { background: rgba(0,0,0,.6); }
+    .modal-bg { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
     .focus-trap:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-    .msg-actions button { cursor: pointer; opacity: .5; transition: opacity .2s; }
-    .msg-actions button:hover { opacity: 1; }
-    .prose table { width: 100%; }
-    .prose th { background-color: #f3f4f6; }
+    #toast { transform: translateY(var(--toast-translate-y)); transition: transform .3s ease; }
+    .prose table { width: 100%; border-collapse: collapse; }
+    .prose th, .prose td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; }
+    .prose th { background-color: #f3f4f6; font-weight: 600; }
     .dark .prose th { background-color: #374151; }
-    .prose th, .prose td { border: 1px solid #d1d5db; padding: 0.5rem; }
     .dark .prose th, .dark .prose td { border-color: #4b5563; }
+    .loader { border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; width: 12px; height: 12px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
 
-<!-- ───────────────── Header ───────────────── -->
-<nav class="fixed inset-x-0 top-0 flex items-center gap-2 px-2 sm:px-4 py-2 bg-blue-600 dark:bg-gray-800 text-white z-20">
-  <button id="menuBtn" aria-expanded="false" class="p-1 focus-trap"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-  <button id="modelBtn" aria-haspopup="dialog" class="flex items-center px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap"><span id="currentModel" class="truncate max-w-[6rem] sm:max-w-[8rem]">gpt-4o</span><svg class="h-4 w-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.087l3.71-3.856a.75.75 0 011.08 1.04l-4.25 4.414a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"/></svg></button>
-  <span id="liveCost" class="text-xs opacity-80">…</span>
-  <span class="flex-1"></span>
-  <button id="newChatBtnHeader" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></button>
-  <button id="settingsOpener" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>
-</nav>
+  <body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
 
-<!-- ───────────────── Sidebar ───────────────── -->
-<aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-full sm:w-72 bg-white dark:bg-gray-800 shadow-lg p-4 pt-20 z-10 overflow-y-auto">
-  <button id="closeSidebar" class="absolute top-4 right-4 text-gray-700 dark:text-white focus-trap">✖</button>
-  <details open>
-    <summary class="font-medium cursor-pointer">Chats</summary>
-    <div class="mt-2 space-y-2">
-      <ul id="threadList" class="space-y-1"></ul>
-    </div>
-  </details>
-</aside>
+<!-- DYNAMIC UI ELEMENTS -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-[100]"><div id="toast" class="bg-gray-800 dark:bg-gray-200 text-white dark:text-black py-2 px-4 rounded-lg shadow-xl"></div></div>
+<div id="unlockModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-[60]"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-sm p-6 shadow-lg"><h2 class="text-xl font-semibold mb-4 loc" data-loc="unlock_title">Unlock Chats</h2><p class="text-sm mb-3 loc" data-loc="unlock_desc">Enter your passphrase to decrypt and unlock your chats.</p><input id="unlockPassphrase" type="password" placeholder="Passphrase" class="w-full border rounded px-2 py-1.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"><button id="unlockBtn" class="w-full mt-3 bg-blue-600 text-white px-2 py-1.5 rounded focus-trap loc" data-loc="unlock_btn">Unlock</button></div></div>
 
-<!-- ───────────────── Chat Area ───────────────── -->
-<main class="flex-1 flex flex-col pt-16 pb-20">
-  <section id="chat" role="log" class="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4"></section>
-</main>
+<!-- HEADER -->
+<nav class="fixed inset-x-0 top-0 flex items-center gap-2 px-2 sm:px-4 py-2 bg-blue-600 dark:bg-gray-800 text-white z-20"><button id="menuBtn" class="p-1 focus-trap"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button><button id="modelBtn" class="flex items-center px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap"><span id="currentModel" class="truncate max-w-[6rem] sm:max-w-[8rem]"></span><svg class="h-4 w-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.087l3.71-3.856a.75.75 0 011.08 1.04l-4.25 4.414a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"/></svg></button><span id="liveCost" class="text-xs opacity-80"></span><span class="flex-1"></span><button id="newChatBtnHeader" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></button><button id="settingsOpener" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-1.57 1.992A1.532 1.532 0 013.17 8.51c-1.56.38-1.56 2.6 0 2.98a1.532 1.532 0 01.948 2.286c-.836 1.372.734 2.942 1.992 1.57a1.532 1.532 0 012.286.948c.38 1.56 2.6 1.56 2.98 0a1.532 1.532 0 012.286-.948c1.372.836 2.942-.734 1.57-1.992a1.532 1.532 0 01-.948-2.286c1.56-.38 1.56-2.6 0-2.98a1.532 1.532 0 01-.948-2.286c.836-1.372-.734-2.942-1.992-1.57a1.532 1.532 0 01-2.286-.948zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg></button></nav>
 
-<!-- ───────────────── Input Bar ───────────────── -->
-<div class="fixed bottom-0 inset-x-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-2 sm:p-4">
-  <div class="flex gap-2 items-end max-w-4xl mx-auto">
-    <button id="attachBtn" class="p-2.5 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus-trap hidden" title="Attach Image (Vision)"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg></button>
-    <textarea id="userInput" rows="1" placeholder="Type a message…" class="flex-1 border rounded-lg px-3 py-2.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"></textarea>
-    <button id="sendBtn" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center focus-trap" disabled><svg id="sendIcon" class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><svg id="spinner" class="h-5 w-5 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V8z"/></svg></button>
-  </div>
-</div>
+<!-- SIDEBAR -->
+<aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-full sm:w-72 bg-white dark:bg-gray-800 shadow-lg p-4 pt-20 z-10 overflow-y-auto"><button id="closeSidebar" class="absolute top-4 right-4 text-gray-700 dark:text-white focus-trap">✖</button><ul id="threadList" class="space-y-1"></ul><div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"><button id="promptLibraryOpener" class="w-full text-left p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus-trap loc" data-loc="prompt_library">Prompt Library</button><button id="exportAllBtn" class="w-full text-left p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus-trap loc" data-loc="export_all">Export All Chats</button></div></aside>
 
-<!-- ───────────────── Modals ───────────────── -->
-<div id="modelModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-30" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-sm p-4 relative shadow-lg max-h-[80vh] overflow-y-auto"><button id="closeModelModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><h2 class="text-lg font-semibold text-center mb-3">Switch model</h2><div id="modelList" class="space-y-2"></div></div></div>
-<div id="settingsModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-40" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-2xl p-4 sm:p-6 relative shadow-lg max-h-[90vh] overflow-y-auto"><button id="closeSettingsModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><h2 class="text-2xl font-semibold mb-4">Settings</h2><div class="space-y-6" id="settingsContent"></div></div></div>
+<!-- CHAT AREA -->
+<main class="flex-1 flex flex-col pt-16 pb-20"><section id="chat" role="log" class="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4"></section></main>
 
+<!-- INPUT BAR -->
+<div class="fixed bottom-0 inset-x-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-2 sm:p-4"><div class="max-w-4xl mx-auto"><div id="imagePreviews" class="flex gap-2 mb-2"></div><label class="flex items-center gap-2 text-xs mb-1 text-gray-500" id="webSearchContainer"><input type="checkbox" id="webSearchToggle" class="form-checkbox h-4 w-4 text-blue-600 rounded"><span class="loc" data-loc="web_search_label">Search the web</span></label><div class="flex gap-2 items-end"><button id="attachBtn" class="p-2.5 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus-trap hidden" title="Attach Image"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg></button><textarea id="userInput" rows="1" placeholder="Type a message…" class="flex-1 border rounded-lg px-3 py-2.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"></textarea><button id="sendBtn" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center focus-trap" disabled><svg id="sendIcon" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg><svg id="spinner" class="h-5 w-5 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V8z"/></svg></button></div></div></div>
+
+<!-- MODALS -->
+<div id="modelModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-30" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-sm p-4 relative shadow-lg max-h-[80vh] overflow-y-auto"><button id="closeModelModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><h2 class="text-lg font-semibold text-center mb-3 loc" data-loc="switch_model">Switch model</h2><div id="modelList" class="space-y-2"></div></div></div>
+<div id="settingsModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-40" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-3xl p-4 sm:p-6 relative shadow-lg max-h-[90vh] overflow-y-auto"><button id="closeSettingsModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><h2 class="text-2xl font-semibold mb-4 loc" data-loc="settings">Settings</h2><div class="space-y-6" id="settingsContent"></div></div></div>
+<div id="promptLibraryModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-50" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-xl p-6 relative shadow-lg max-h-[80vh] flex flex-col"><button id="closePromptLibraryModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><h2 class="text-xl font-semibold mb-4 loc" data-loc="prompt_library">Prompt Library</h2><div id="promptList" class="flex-1 overflow-y-auto space-y-2 pr-2"></div><div class="mt-4 flex gap-2"><input id="newPromptName" placeholder="Prompt Name" class="flex-1 border rounded px-2 py-1.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"><button id="savePromptBtn" class="bg-blue-600 text-white px-3 rounded focus-trap loc" data-loc="save_current_prompt">Save Current</button></div></div></div>
+<div id="tosModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-2xl p-6 relative shadow-lg max-h-[80vh] overflow-y-auto"><button id="closeTosModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><div id="tosContent" class="prose prose-sm dark:prose-invert max-w-none"></div></div></div>
 <input type="file" id="attachFileInput" class="hidden" accept="image/*">
+<input type="file" id="importFileInput" class="hidden" accept=".json">
 
-<!-- ───────────────── Templates ───────────────── -->
+<!-- TEMPLATES -->
 <template id="settings-template">
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- General Settings -->
-    <div class="space-y-4">
-      <h3 class="text-lg font-medium border-b pb-2">General</h3>
-      <div><label for="apiKeyInput">API Key</label><div id="apiKeyContainer" class="relative"><input id="apiKeyInput" type="password" placeholder="sk-..." class="w-full mt-1 border rounded px-2 py-1.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"><button id="saveKeyBtn" class="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-2 py-0.5 rounded focus-trap">Save</button></div><div id="apiStatus" class="hidden text-green-500 text-sm mt-1">API Key saved <button id="resetKeyBtn" class="ml-2 text-red-500 underline focus-trap">Change</button></div></div>
-      <div><label for="tempInput">Default Temperature: <span id="tempLabel">1.0</span></label><input id="tempInput" type="range" min="0" max="2" step="0.05" class="w-full mt-1 focus-trap"></div>
-      <label class="inline-flex items-center gap-2"><input id="themeToggle" type="checkbox" class="accent-blue-600 focus-trap"><span>Dark Mode</span></label>
-      <label class="inline-flex items-center gap-2"><input id="ttsToggle" type="checkbox" class="accent-blue-600 focus-trap"><span>Auto-play TTS on response</span></label>
-    </div>
-    <!-- Model Visibility -->
-    <div class="space-y-2">
-      <h3 class="text-lg font-medium border-b pb-2">Visible Models</h3>
-      <div id="modelVisibilityList" class="space-y-1 max-h-60 overflow-y-auto text-sm pr-2">Loading models...</div>
-    </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+    <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="config">Configuration</h3><div><label class="text-sm font-medium loc" data-loc="api_key">API Key</label><div id="apiKeyContainer" class="relative"><input id="apiKeyInput" type="password" placeholder="sk-..." class="form-input w-full mt-1 dark:bg-gray-700 dark:border-gray-600"><button id="saveKeyBtn" class="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-2 py-0.5 rounded focus-trap loc" data-loc="save">Save</button></div><div id="apiStatus" class="hidden text-green-500 text-sm mt-1"></div></div><div><label class="text-sm font-medium">Default Temperature: <span id="tempLabel"></span></label><input id="tempInput" type="range" min="0" max="2" step="0.05" class="w-full mt-1"></div><div class="flex items-center justify-between"><label class="text-sm font-medium loc" data-loc="language">Language</label><select id="languageSelect" class="form-select dark:bg-gray-700 dark:border-gray-600 rounded-md text-sm py-1"></select></div><label class="flex items-center gap-3"><input id="themeToggle" type="checkbox" class="form-checkbox rounded"><span>Use Dark Mode</span></label></div>
+    <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="audio">Audio</h3><label class="flex items-center gap-3"><input id="ttsToggle" type="checkbox" class="form-checkbox rounded"><span>Auto-play TTS on response</span></label><div><label for="ttsProvider" class="text-sm font-medium loc" data-loc="tts_provider">TTS Provider</label><select id="ttsProvider" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div><div id="openaiVoiceContainer" class="hidden"><label for="openaiVoice" class="text-sm font-medium loc" data-loc="openai_voice">OpenAI Voice</label><select id="openaiVoice" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div></div>
+    <div class="md:col-span-2 space-y-2"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="security_data">Security & Data</h3><div class="flex gap-2 flex-wrap"><button id="setEncryptionBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="set_encryption">Set Encryption Passphrase</button><button id="exportPdfBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="export_pdf">Export Thread to PDF</button><button id="importBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="import_json">Import from JSON</button></div></div>
   </div>
+  <div class="mt-6 pt-4 border-t"><p class="text-xs text-gray-500">ChatGPT Polished Client v5.0 | <button id="tosOpener" class="underline loc" data-loc="tos_privacy">Terms of Service & Privacy</button></p></div>
 </template>
 
-<!-- ───────────────── Script ───────────────── -->
-<script type="module">
+
+   <script type="module">
+// Initialize Libraries
+const { jsPDF } = window.jspdf;
+const { html2canvas } = window;
+
 document.addEventListener('DOMContentLoaded', () => {
 /* ─── Globals, State & Helpers ────────────────── */
 const $ = id => document.getElementById(id);
 const md = txt => DOMPurify.sanitize(marked.parse(txt, { gfm: true, breaks: true, smartLists: true }));
+const VISION_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision-preview"];
+const TARIFF = { 'gpt-4o': [0.005, 0.015], 'gpt-4o-mini': [0.00015, 0.0006], 'gpt-4-turbo': [0.01, 0.03], 'gpt-4-vision-preview': [0.01, 0.03], 'gpt-4': [0.03, 0.06], 'gpt-4-32k': [0.06, 0.12], 'gpt-3.5-turbo': [0.0005, 0.0015] };
+const DEFAULT_RATE = [0.01, 0.03];
+const L = {
+    en: { unlock_title: "Unlock Chats", unlock_desc: "Enter your passphrase to decrypt and unlock your chats.", unlock_btn: "Unlock", switch_model: "Switch model", settings: "Settings", prompt_library: "Prompt Library", export_all: "Export All Chats", web_search_label: "Search the web", save_current_prompt: "Save Current Prompt", config: "Configuration", api_key: "API Key", save: "Save", audio: "Audio", tts_provider: "TTS Provider", openai_voice: "OpenAI Voice", security_data: "Security & Data", set_encryption: "Set Encryption Passphrase", export_pdf: "Export Thread to PDF", import_json: "Import from JSON", tos_privacy: "Terms of Service & Privacy", language: "Language", api_key_saved: "API Key saved.", change: "Change", api_key_removed: "API Key removed." },
+    es: { unlock_title: "Desbloquear Chats", unlock_desc: "Ingrese su contraseña para descifrar y desbloquear sus chats.", unlock_btn: "Desbloquear", switch_model: "Cambiar Modelo", settings: "Ajustes", prompt_library: "Biblioteca de Prompts", export_all: "Exportar Todos los Chats", web_search_label: "Buscar en la web", save_current_prompt: "Guardar Prompt Actual", config: "Configuración", api_key: "Clave de API", save: "Guardar", audio: "Audio", tts_provider: "Proveedor de TTS", openai_voice: "Voz de OpenAI", security_data: "Seguridad y Datos", set_encryption: "Establecer Contraseña de Cifrado", export_pdf: "Exportar Hilo a PDF", import_json: "Importar desde JSON", tos_privacy: "Términos de Servicio y Privacidad", language: "Idioma", api_key_saved: "Clave de API guardada.", change: "Cambiar", api_key_removed: "Clave de API eliminada." }
+};
+
 let state = {
     apiKey: '', theme: 'light', model: 'gpt-4o', temperature: 1.0, autoRead: false,
-    threads: [], currentThread: null, modelVisibility: {}
+    threads: [], currentThread: null, modelVisibility: {}, prompts: [],
+    isEncrypted: false, encryptionKey: null, ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en'
 };
-let tokenizer = null;
-let currentAudio = null;
+let tokenizer, currentAudioPlayer, attachedImages = [];
+
+// Decoupled initialization for stability
+initializeApp();
 
 async function initializeApp() {
+    registerServiceWorker();
+    // Load UI immediately, regardless of secondary dependencies
+    await loadState();
+    // Attempt to load tokenizer in the background
     try {
         await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
-        tokenizer = new window.tiktoken.Tiktoken(
-            (await (await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,
-            { "<|endoftext|>": 100257, "<|fim_prefix|>": 100258, "<|fim_middle|>": 100259, "<|fim_suffix|>": 100260, "<|endofprompt|>": 100276 },
-            "'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+"
-        );
-        console.log("tiktoken initialized.");
-    } catch (e) {
-        console.error("Failed to load tiktoken tokenizer. Using approximation.", e);
-    }
-    loadState();
+        tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
+    } catch (e) { console.error("Tokenizer failed to load. Using approximation.", e); }
 }
 
-async function calculateTokens(text) {
-    if (tokenizer) return tokenizer.encode(text).length;
-    return Math.ceil((text || '').length / 4); // Fallback
-}
+const loc = (key) => L[state.language]?.[key] || L['en'][key];
+function localizeUI() { document.querySelectorAll('[data-loc]').forEach(el => { el.textContent = loc(el.dataset.loc); }); }
+async function calculateTokens(text) { if (tokenizer) return tokenizer.encode(text).length; return Math.ceil((text || '').length / 4); }
+const costOf = (m, inT, outT) => { const rate = TARIFF[Object.keys(TARIFF).find(k => m.startsWith(k))] || DEFAULT_RATE; return (inT / 1000 * rate[0]) + (outT / 1000 * rate[1]); };
+let toastTimer;
+function showToast(message) { clearTimeout(toastTimer); const toast = $('toast'); toast.textContent = message; document.documentElement.style.setProperty('--toast-translate-y', '0'); toastTimer = setTimeout(() => document.documentElement.style.setProperty('--toast-translate-y', '120%'), 3000); }
 
-/* ─── State Management ────────────────── */
-function loadState() {
-    const savedState = localStorage.getItem('appState');
-    if (savedState) state = { ...state, ...JSON.parse(savedState) };
-    
-    // UI setup from state
-    document.documentElement.classList.toggle('dark', state.theme === 'dark');
-    $('currentModel').textContent = state.model;
-    updateAttachButtonVisibility();
-    
-    if (!state.currentThread && state.threads.length > 0) state.currentThread = state.threads[0].id;
-    renderThreads();
-    loadThread();
+/* ─── State, PWA, Crypto ────────────────── */
+async function loadState() {
+    const s = localStorage.getItem('appState');
+    if (!s) { firstRunSetup(); return; }
+    try {
+        const parsed = JSON.parse(s);
+        if (parsed.isEncrypted) { state.isEncrypted = true; $('unlockModal').classList.replace('hidden', 'flex'); localizeUI(); return; }
+        state = { ...state, ...parsed };
+        setupUI();
+    } catch (e) { state.isEncrypted = true; $('unlockModal').classList.replace('hidden', 'flex'); localizeUI(); }
 }
-function saveState() { localStorage.setItem('appState', JSON.stringify(state)); }
+function firstRunSetup() { $('tosModal').classList.replace('hidden', 'flex'); $('tosContent').innerHTML = `<h2>Welcome!</h2><p>This is a client-side application. Your API key and chats are stored in your browser's LocalStorage. By using this app, you agree to take responsibility for securing your own data and API key. No data is sent to any server except OpenAI's official API.</p><p>Please set your API key in the settings to begin.</p>`; setupUI(); }
+async function saveState() { let stateToSave = { ...state }; delete stateToSave.encryptionKey; let dataToStore = JSON.stringify(stateToSave); if (state.isEncrypted && state.encryptionKey) { dataToStore = await encrypt(dataToStore, state.encryptionKey); } localStorage.setItem('appState', dataToStore); }
+function setupUI() { document.documentElement.lang = state.language; document.documentElement.classList.toggle('dark', state.theme === 'dark'); $('currentModel').textContent = state.model; updateAttachButtonVisibility(); if (!state.currentThread && state.threads.length > 0) state.currentThread = state.threads[0].id; renderThreads(); loadThread(); localizeUI(); }
+function registerServiceWorker() { if ('serviceWorker' in navigator) { const swJS = `const CACHE_NAME='chat-final-v1';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE_NAME).then(c=>c.add('/'))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`; navigator.serviceWorker.register(`data:text/javascript,${encodeURIComponent(swJS)}`).catch(e => console.error('SW registration failed:', e)); } }
+async function deriveKey(passphrase, salt) { const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']); return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']); }
+async function encrypt(data, key) { const iv = crypto.getRandomValues(new Uint8Array(12)), salt = crypto.getRandomValues(new Uint8Array(16)); const derivedKey = await deriveKey(key, salt); const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, derivedKey, new TextEncoder().encode(data)); const buffer = new Uint8Array(salt.length + iv.length + ciphertext.byteLength); buffer.set(salt, 0); buffer.set(iv, salt.length); buffer.set(new Uint8Array(ciphertext), salt.length + iv.length); return btoa(String.fromCharCode.apply(null, buffer)); }
+async function decrypt(encryptedData, key) { const data = atob(encryptedData), buffer = new Uint8Array(data.length); for (let i = 0; i < data.length; i++) buffer[i] = data.charCodeAt(i); const salt = buffer.slice(0, 16), iv = buffer.slice(16, 28), ciphertext = buffer.slice(28); const derivedKey = await deriveKey(key, salt); const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, derivedKey, ciphertext); return new TextDecoder().decode(decrypted); }
 
-/* ─── UI: Main Elements & Theme ────────────────── */
-const ta = $('userInput'), sendBtn = $('sendBtn'), sendIcon = $('sendIcon'), spinner = $('spinner');
-ta.addEventListener('input', () => {
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 256) + 'px';
-    sendBtn.disabled = ta.value.trim().length === 0;
-});
+/* ─── UI & Event Listeners ────────────────── */
+const ta = $('userInput'), sendBtn = $('sendBtn');
+const updateSendButton = () => { sendBtn.disabled = ta.value.trim().length === 0 && attachedImages.length === 0; };
+ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 256) + 'px'; updateSendButton(); });
+const modalAction = (modalId, action) => $(modalId).classList.replace(action === 'open' ? 'hidden' : 'flex', action === 'open' ? 'flex' : 'hidden');
 $('menuBtn').onclick = () => $('sidebar').classList.add('open');
 $('closeSidebar').onclick = () => $('sidebar').classList.remove('open');
 $('newChatBtnHeader').onclick = newThread;
+$('attachBtn').onclick = () => $('attachFileInput').click();
+$('attachFileInput').onchange = handleFileAttachment;
+sendBtn.onclick = () => sendMsg();
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modelModal', 'settingsModal', 'promptLibraryModal', 'tosModal', 'unlockModal'].forEach(id => modalAction(id, 'close')); } });
+$('unlockBtn').onclick = async () => { const phrase = $('unlockPassphrase').value; if (!phrase) return; try { const decryptedString = await decrypt(localStorage.getItem('appState'), phrase); state = { ...state, ...JSON.parse(decryptedString) }; state.encryptionKey = phrase; modalAction('unlockModal', 'close'); setupUI(); showToast('Chats unlocked!'); } catch (err) { showToast('Decryption failed. Wrong passphrase?'); console.error(err); } };
 
-function updateAttachButtonVisibility() {
-    const visionModels = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision"];
-    const isVisionModel = visionModels.some(vm => state.model.startsWith(vm));
-    $('attachBtn').classList.toggle('hidden', !isVisionModel);
+/* ─── Thread Management & Rendering ────────────────── */
+function renderThreads() { const ul = $('threadList'); ul.innerHTML = ''; state.threads.forEach(t => { const li = document.createElement('li'); li.className = `p-2 rounded flex items-center justify-between cursor-pointer ${t.id === state.currentThread ? 'bg-blue-100 dark:bg-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`; li.innerHTML = `<span class="flex-1 truncate">${t.title}</span><span class="text-xs opacity-70 mr-1">$${(t.cost || 0).toFixed(4)}</span>`; li.onclick = () => { if (state.currentThread === t.id) return; state.currentThread = t.id; saveState(); renderThreads(); loadThread(); $('sidebar').classList.remove('open'); }; ul.appendChild(li); }); }
+function loadThread() { $('chat').innerHTML = ''; const th = state.threads.find(x => x.id === state.currentThread); if (!th) { updateCostUI(0, 0); return; } th.messages.forEach((m, index) => addMsg(m, index)); updateCostUI(0, th.cost || 0); }
+function newThread() { const id = Date.now().toString(); state.threads.unshift({ id, title: 'New Chat', messages: [], cost: 0 }); state.currentThread = id; ta.value = ''; attachedImages = []; renderImagePreviews(); updateSendButton(); saveState(); renderThreads(); loadThread(); }
+function addMsg(message, index) { const chat = $('chat'), div = document.createElement('div'); let innerHTML = '';
+    if(message.role === 'system'){ innerHTML = `<div class="text-center text-xs text-gray-400 p-2 my-2 border-t border-b dark:border-gray-700 flex items-center justify-center gap-2">${md(message.content)}</div>`; }
+    else if (message.role === 'user') { let textContent = '', imageHTML = ''; if (Array.isArray(message.content)) { message.content.forEach(p => { if (p.type === 'text') textContent = p.text; if (p.type === 'image_url') imageHTML += `<img src="${p.image_url.url}" class="max-w-xs rounded-lg mt-2" alt="User attachment">`; }); } else { textContent = message.content; } innerHTML = `<div class="text-right text-xs text-gray-400 mb-1">You</div><div class="ml-auto bg-blue-500 text-white rounded-lg p-3 max-w-xl inline-block">${md(textContent)}${imageHTML}</div>`; div.className = 'text-right'; }
+    else { innerHTML = `<div class="text-left text-xs text-gray-400 mb-1">ChatGPT</div><div class="relative group bg-gray-200 dark:bg-gray-700 rounded-lg p-3 max-w-xl inline-block" id="msg-${index}"><div class="prose dark:prose-invert max-w-none">${md(message.content)}</div><div class="msg-actions absolute -bottom-2.5 right-2 flex items-center gap-2 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"><button class="speak-btn p-1" title="Play/Stop Audio"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg></button><button class="regen-btn p-1" title="Regenerate Response"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></svg></button></div></div>`; }
+    div.innerHTML = innerHTML; chat.appendChild(div); if (message.role === 'assistant') { div.querySelector('.speak-btn').onclick = (e) => toggleTTS(message.content, e.currentTarget); div.querySelector('.regen-btn').onclick = () => regenerateResponse(index); }
 }
+function updateCostUI(last, total) { $('liveCost').textContent = `≈$${total.toFixed(5)}`; }
+async function regenerateResponse(assistantMsgIndex) { const th = state.threads.find(x => x.id === state.currentThread); if (!th || assistantMsgIndex === 0) return; th.cost -= (th.messages[assistantMsgIndex].cost || 0); th.messages.splice(assistantMsgIndex); loadThread(); await sendMsg(th.messages[th.messages.length - 1].content, true); }
+function handleFileAttachment(e) { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { attachedImages.push({ data: re.target.result }); renderImagePreviews(); updateSendButton(); }; reader.readAsDataURL(file); } e.target.value = null; }
+function renderImagePreviews() { const container = $('imagePreviews'); container.innerHTML = ''; attachedImages.forEach((img, index) => { const div = document.createElement('div'); div.className = 'relative'; div.innerHTML = `<img src="${img.data}" class="h-16 w-16 object-cover rounded-md"><button class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">×</button>`; div.querySelector('button').onclick = () => { attachedImages.splice(index, 1); renderImagePreviews(); updateSendButton(); }; container.appendChild(div); }); }
 
-/* ─── Threads Management ────────────────── */
-function renderThreads() {
-  const ul = $('threadList'); ul.innerHTML = '';
-  state.threads.forEach(t => {
-    const li = document.createElement('li');
-    li.className = 'p-2 rounded flex items-center justify-between ' + (t.id === state.currentThread ? 'bg-blue-100 dark:bg-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700');
-    li.innerHTML = `<span class="flex-1 truncate">${t.title}</span><span class="text-xs opacity-70 mr-1">$${(t.cost || 0).toFixed(4)}</span>`;
-    li.onclick = () => { if (state.currentThread === t.id) return; state.currentThread = t.id; saveState(); renderThreads(); loadThread(); $('sidebar').classList.remove('open'); };
-    ul.appendChild(li);
-  });
-}
-function loadThread() {
-    $('chat').innerHTML = '';
+
+
+
+/* ─── API & Audio ────────────────── */
+async function fetchWithRetry(url, options, retries = 3, delay = 1000) { try { const res = await fetch(url, options); if (!res.ok && (res.status === 429 || res.status >= 500) && retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } return res; } catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } throw err; } }
+async function sendMsg(contentOverride = null, isRegen = false) {
+    if (!state.apiKey) { showToast('Set your API key first'); return; }
+    const textContent = contentOverride ?? ta.value.trim();
+    if (!textContent && attachedImages.length === 0) return;
+
+    $('spinner').classList.remove('hidden'); $('sendIcon').classList.add('hidden'); sendBtn.disabled = true;
     const th = state.threads.find(x => x.id === state.currentThread);
-    if (!th) { updateCostUI(0, 0); return; }
-    th.messages.forEach((m, index) => addMsg(m, index));
-    updateCostUI(0, th.cost || 0);
-}
-function newThread() {
-  const id = Date.now().toString();
-  state.threads.unshift({ id, title: 'New Chat', messages: [], cost: 0 });
-  state.currentThread = id;
-  saveState(); renderThreads(); loadThread();
-}
-
-/* ─── Message Rendering & Actions ────────────────── */
-function addMsg(message, index) {
-    const chat = $('chat');
-    const div = document.createElement('div');
-    div.className = 'group';
-    let innerHTML = '';
-
-    if (message.role === 'user') {
-        innerHTML = `<div class="text-right text-xs text-gray-400">You</div><div class="inline-block bg-blue-500 text-white rounded-lg p-3">${md(message.content)}</div>`;
-        div.className += ' text-right';
-    } else { // Assistant
-        innerHTML = `<div class="text-left text-xs text-gray-400">ChatGPT</div>
-                     <div class="relative inline-block bg-gray-200 dark:bg-gray-700 rounded-lg p-3">
-                       <div class="prose dark:prose-invert max-w-none">${md(message.content)}</div>
-                       <div class="msg-actions absolute -bottom-2.5 right-2 flex items-center gap-2 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button class="speak-btn" title="Play/Stop Audio"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m-2.121-2.121a2 2 0 010 2.828M12 18h.01M17 12a5 5 0 00-5-5m0 0a5 5 0 00-5 5m5-5v7a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2z"></path></svg></button>
-                         <button class="regen-btn" title="Regenerate Response"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4a14.95 14.95 0 0114.65 12.35M20 20a14.95 14.95 0 01-14.65-12.35"/></svg></button>
-                       </div>
-                     </div>`;
-    }
-    div.innerHTML = innerHTML;
-    chat.appendChild(div);
-
-    if (message.role === 'assistant') {
-        const textContent = message.content;
-        div.querySelector('.speak-btn').onclick = () => toggleTTS(textContent, div.querySelector('.speak-btn'));
-        div.querySelector('.regen-btn').onclick = () => regenerateResponse(index);
-    }
-    chat.scrollTop = chat.scrollHeight;
-}
-
-function updateCostUI(last, total) {
-  $('liveCost').textContent = `≈$${total.toFixed(5)}`;
-}
-
-function toggleTTS(text, btn) {
-    if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
-        if (currentAudio === text) { currentAudio = null; return; }
-    }
-    currentAudio = text;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onend = () => { currentAudio = null; };
-    speechSynthesis.speak(utterance);
-}
-
-async function regenerateResponse(assistantMsgIndex) {
-    const th = state.threads.find(x => x.id === state.currentThread);
-    if (!th || assistantMsgIndex === 0) return;
-
-    const userMsgIndex = assistantMsgIndex - 1;
-    const userMessage = th.messages[userMsgIndex];
-    if (userMessage.role !== 'user') return;
-
-    // Subtract cost of the old response
-    const oldAssistantMsg = th.messages[assistantMsgIndex];
-    const oldCost = oldAssistantMsg.cost || 0;
-    th.cost -= oldCost;
     
-    // Remove old message and send new one
-    th.messages.splice(assistantMsgIndex, 1);
+    if ($('webSearchToggle').checked) { addMsg({role: 'system', content: '<div class="loader"></div> Searching the web...'}, th.messages.length); }
     
-    // Re-render UI to remove the old message visually before sending new one
-    loadThread();
+    let userMessageContent = [];
+    if (textContent) userMessageContent.push({ type: 'text', text: textContent });
+    attachedImages.forEach(img => userMessageContent.push({ type: "image_url", image_url: { url: img.data } }));
+    if (userMessageContent.length === 1 && userMessageContent[0].type === 'text') userMessageContent = userMessageContent[0].text;
 
-    await sendMsg(userMessage.content);
-}
-
-/* ─── API Interaction ────────────────── */
-async function sendMsg(contentOverride = null) {
-  if (!state.apiKey) { alert('Set your API key first'); return; }
-  const content = contentOverride ?? ta.value.trim();
-  if (!content) return;
-
-  if (!contentOverride) ta.value = '';
-  ta.dispatchEvent(new Event('input'));
-  spinner.classList.remove('hidden'); sendIcon.classList.add('hidden'); sendBtn.disabled = true;
-
-  const th = state.threads.find(x => x.id === state.currentThread);
-  const userMessage = { role: 'user', content };
+    if (!isRegen) { th.messages.push({ role: 'user', content: userMessageContent }); addMsg(th.messages[th.messages.length - 1], th.messages.length - 1); }
+    if (th.title === 'New Chat') th.title = typeof userMessageContent === 'string' ? userMessageContent.slice(0, 30) : userMessageContent.find(p=>p.type==='text')?.text.slice(0,30) || 'Image Query';
+    ta.value = ''; attachedImages = []; renderImagePreviews(); updateSendButton(); ta.dispatchEvent(new Event('input'));
   
-  if (!contentOverride) {
-      th.messages.push(userMessage);
-      addMsg(userMessage, th.messages.length - 1);
-  }
-  
-  if (th.title === 'New Chat') th.title = content.slice(0, 30);
-  
-  const inT = await calculateTokens(JSON.stringify(th.messages));
-  let acc = '', outT = 0;
+    const requestBody = { model: state.model, messages: th.messages, temperature: state.temperature, stream: true };
+    if ($('webSearchToggle').checked) { requestBody.tools = [{ type: 'web_search' }]; }
+    
+    const inT = await calculateTokens(JSON.stringify(requestBody));
+    let acc = '', outT = 0;
+    
+    addMsg({role: 'assistant', content: '...'}, th.messages.length);
+    let assistantMessageIndex = th.messages.length;
+    let currentMessageDiv = $(`msg-${assistantMessageIndex}`);
 
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey },
-      body: JSON.stringify({ model: state.model, messages: th.messages, temperature: +state.temperature, stream: true })
-    });
-    if (!res.ok) throw new Error(`API Error: ${res.status} ${(await res.text())}`);
-    
-    const assistContainer = document.createElement('div');
-    assistContainer.className = 'group';
-    assistContainer.innerHTML = `<div class="text-left text-xs text-gray-400">ChatGPT</div><div class="relative inline-block bg-gray-200 dark:bg-gray-700 rounded-lg p-3"><div class="prose dark:prose-invert max-w-none assist-content"></div><div class="msg-actions absolute -bottom-2.5 right-2 flex items-center gap-2 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"><button class="speak-btn"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m-2.121-2.121a2 2 0 010 2.828M12 18h.01M17 12a5 5 0 00-5-5m0 0a5 5 0 00-5 5m5-5v7a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2z"></path></svg></button><button class="regen-btn"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4a14.95 14.95 0 0114.65 12.35M20 20a14.95 14.95 0 01-14.65-12.35"/></svg></button></div></div>`;
-    $('chat').appendChild(assistContainer);
-    
-    const rd = res.body.getReader(), dec = new TextDecoder();
-    while (true) {
-      const { value, done } = await rd.read();
-      if (done) break;
-      const chunk = dec.decode(value);
-      const lines = chunk.split('\n\n');
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-            const data = line.substring(6);
-            if (data.trim() === '[DONE]') break;
-            const delta = JSON.parse(data).choices[0].delta.content || '';
-            acc += delta;
-            assistContainer.querySelector('.assist-content').innerHTML = md(acc);
-            $('chat').scrollTop = $('chat').scrollHeight;
+    try {
+        const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify(requestBody) });
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`API Error: ${res.status} ${errorText}`);
         }
-      }
+    
+        const contentDiv = currentMessageDiv.querySelector('.prose');
+        const rd = res.body.getReader(), dec = new TextDecoder();
+        while (true) {
+            const { value, done } = await rd.read(); if (done) break;
+            dec.decode(value).split('\n\n').filter(l => l.startsWith('data: ')).forEach(l => {
+                const d = l.substring(6); if (d.trim() === '[DONE]') return;
+                const parsed = JSON.parse(d);
+                if(parsed.choices[0].delta.content) { acc += parsed.choices[0].delta.content; contentDiv.innerHTML = md(acc); }
+                if(parsed.choices[0].delta.tool_calls) { const toolCall = parsed.choices[0].delta.tool_calls[0]; if(toolCall.function.name === 'web_search') addMsg({role: 'system', content: 'Web search complete. Formulating answer...'}, -1); }
+            });
+        }
+    
+        outT = await calculateTokens(acc);
+        const cost = costOf(state.model, inT, outT);
+        th.cost = (th.cost || 0) + cost;
+
+        const newAssistantMsg = { role: 'assistant', content: acc, cost };
+        th.messages[assistantMessageIndex] = newAssistantMsg; // Replace placeholder
+        currentMessageDiv.remove();
+        addMsg(newAssistantMsg, assistantMessageIndex);
+        
+        if (state.autoRead && !isRegen) toggleTTS(newAssistantMsg.content, document.querySelector(`#msg-${assistantMessageIndex} .speak-btn`));
+
+    } catch (err) { console.error(err); if (currentMessageDiv) currentMessageDiv.remove(); addMsg({role: 'assistant', content: `⚠️ Error: ${err.message}`}, -1);
+    } finally { saveState(); renderThreads(); updateCostUI(0, th.cost); $('spinner').classList.add('hidden'); $('sendIcon').classList.remove('hidden'); updateSendButton(); }
+}
+async function toggleTTS(text, btn) {
+    if (currentAudioPlayer && !currentAudioPlayer.paused) { currentAudioPlayer.pause(); return; }
+    btn.innerHTML = `<div class="loader"></div>`;
+    const playIcon = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>';
+    const stopIcon = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18V6h2v12H6zm8-12v12h2V6h-2z"/></svg>';
+
+    const resetUI = () => { currentAudioPlayer = null; btn.innerHTML = playIcon; };
+
+    if (state.ttsProvider === 'browser') { if (speechSynthesis.speaking) speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.onstart = () => btn.innerHTML = stopIcon; u.onend = resetUI; speechSynthesis.speak(u); }
+    else {
+        try {
+            const res = await fetchWithRetry('https://api.openai.com/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify({ model: 'tts-1', input: text, voice: state.openaiVoice }) });
+            if (!res.ok) throw new Error('TTS API request failed');
+            const blob = await res.blob();
+            currentAudioPlayer = new Audio(URL.createObjectURL(blob));
+            currentAudioPlayer.play();
+            btn.innerHTML = stopIcon;
+            currentAudioPlayer.onended = resetUI;
+            currentAudioPlayer.onpause = resetUI;
+        } catch (e) { showToast('Failed to play OpenAI TTS.'); console.error(e); resetUI(); }
     }
-    
-    outT = await calculateTokens(acc);
-    const rate = state.model.startsWith('gpt-4') ? [0.03, 0.06] : [0.0005, 0.0015]; // Simplified
-    const cost = (inT / 1000 * rate[0]) + (outT / 1000 * rate[1]);
-    th.cost = (th.cost || 0) + cost;
-
-    const newAssistantMsg = { role: 'assistant', content: acc, cost };
-    th.messages.push(newAssistantMsg);
-
-    const newIndex = th.messages.length - 1;
-    assistContainer.querySelector('.speak-btn').onclick = () => toggleTTS(acc, assistContainer.querySelector('.speak-btn'));
-    assistContainer.querySelector('.regen-btn').onclick = () => regenerateResponse(newIndex);
-    
-    if (state.autoRead && !contentOverride) toggleTTS(acc);
-
-  } catch (err) {
-    console.error(err);
-    addMsg({role: 'assistant', content: `⚠️ Error: ${err.message}`}, -1);
-  } finally {
-    saveState(); renderThreads(); updateCostUI(0, th.cost);
-    spinner.classList.add('hidden'); sendIcon.classList.remove('hidden');
-    ta.dispatchEvent(new Event('input'));
-  }
 }
 
-/* ─── Modals (Model & Settings) ────────────────── */
-// --- Model Modal ---
-$('modelBtn').onclick = () => { $('modelModal').classList.replace('hidden', 'flex'); populateModels(); };
-$('closeModelModal').onclick = () => $('modelModal').classList.replace('flex', 'hidden');
-
-async function populateModels() {
-  const box = $('modelList'); box.innerHTML = 'Loading…';
-  let models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'];
-  if (state.apiKey) { try { const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + state.apiKey }}); models = (await r.json()).data.map(m => m.id).filter(id => /^gpt-/.test(id) && !id.includes('instruct')).sort(); } catch (e) { console.error(e); }}
-  
-  const visibleModels = models.filter(m => state.modelVisibility[m] !== false);
-  box.innerHTML = '';
-  visibleModels.forEach(id => {
-    const btn = document.createElement('button');
-    btn.className = 'block w-full text-left px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus-trap';
-    btn.textContent = id + (id === state.model ? ' ✅' : '');
-    btn.onclick = () => { state.model = id; $('currentModel').textContent = id; saveState(); populateModels(); updateAttachButtonVisibility(); };
-    box.appendChild(btn);
-  });
-}
-
-// --- Settings Modal ---
-$('settingsOpener').onclick = () => { $('settingsModal').classList.replace('hidden', 'flex'); renderSettings(); };
-$('closeSettingsModal').onclick = () => $('settingsModal').classList.replace('flex', 'hidden');
-
+/* ─── Modals, Settings & Data I/O ────────────────── */
+function setupModal(modalId, openBtnId, beforeOpen) { const openBtn = $(openBtnId); if(openBtn) openBtn.onclick = () => { if (beforeOpen) beforeOpen(); modalAction(modalId, 'open'); }; $(`close${modalId.charAt(0).toUpperCase() + modalId.slice(1)}`).onclick = () => modalAction(modalId, 'close'); }
+setupModal('modelModal', 'modelBtn', populateModels);
+setupModal('settingsModal', 'settingsOpener', renderSettings);
+setupModal('promptLibraryModal', 'promptLibraryOpener', renderPrompts);
+setupModal('tosModal', 'tosOpener', () => { $('tosContent').innerHTML = `<h2>Terms & Privacy</h2><p>This is a client-side application. Your API key and chats are stored in your browser's LocalStorage. By using this app, you agree to take responsibility for securing your own data and API key. No data is sent to any server except OpenAI's official API.</p>`});
+async function populateModels() { const box = $('modelList'); box.innerHTML = `<div class="flex justify-center items-center gap-2 text-gray-400"><div class="loader"></div><span>Fetching models...</span></div>`; let models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']; if (state.apiKey) { try { const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + state.apiKey }}); models = (await r.json()).data.map(m => m.id).filter(id => /^gpt-/.test(id) && !id.includes('instruct')).sort(); } catch (e) { box.textContent = 'Could not fetch models.'; return; }} const visibleModels = models.filter(m => state.modelVisibility[m] !== false); box.innerHTML = ''; visibleModels.forEach(id => { const btn = document.createElement('button'); btn.className = `block w-full text-left px-2 py-1 rounded focus-trap ${id === state.model ? 'bg-blue-100 dark:bg-gray-600' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`; btn.textContent = id + (id === state.model ? ' ✅' : ''); btn.onclick = () => { state.model = id; $('currentModel').textContent = id; saveState(); populateModels(); updateAttachButtonVisibility(); modalAction('modelModal', 'close'); }; box.appendChild(btn); }); }
 function renderSettings() {
-    const content = $('settingsContent');
-    content.innerHTML = $('settings-template').innerHTML;
-
-    // Load state into settings UI
-    $('apiKeyInput').value = state.apiKey;
-    keyUI(!!state.apiKey);
-    $('tempInput').value = state.temperature;
-    $('tempLabel').textContent = state.temperature;
+    $('settingsContent').innerHTML = $('settings-template').innerHTML;
+    // Load state
+    $('apiKeyInput').value = state.apiKey; keyUI(!!state.apiKey);
+    $('tempInput').value = state.temperature; $('tempLabel').textContent = state.temperature;
     $('themeToggle').checked = state.theme === 'dark';
     $('ttsToggle').checked = state.autoRead;
-
-    // Add event listeners
-    $('saveKeyBtn').onclick = () => { const k = $('apiKeyInput').value.trim(); if (k) { state.apiKey = k; saveState(); keyUI(true); populateModelVisibilityList(); }};
-    $('resetKeyBtn').onclick = () => { state.apiKey = ''; saveState(); keyUI(false); $('apiKeyInput').value = ''; };
+    const ttsProviderSelect = $('ttsProvider'); ['browser', 'openai'].forEach(p => ttsProviderSelect.add(new Option(p.charAt(0).toUpperCase() + p.slice(1), p, p === state.ttsProvider, p === state.ttsProvider)));
+    const openaiVoiceSelect = $('openaiVoice'); ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].forEach(v => openaiVoiceSelect.add(new Option(v.charAt(0).toUpperCase() + v.slice(1), v, v === state.openaiVoice, v === state.openaiVoice)));
+    $('openaiVoiceContainer').classList.toggle('hidden', state.ttsProvider !== 'openai');
+    const langSelect = $('languageSelect'); Object.keys(L).forEach(lang => langSelect.add(new Option(lang.toUpperCase(), lang, lang === state.language, lang === state.language)));
+    // Event listeners
+    $('saveKeyBtn').onclick = () => { const k = $('apiKeyInput').value.trim(); if (k) { state.apiKey = k; saveState(); keyUI(true); populateModelVisibilityList(); showToast(loc('api_key_saved')); }};
     $('tempInput').oninput = e => { $('tempLabel').textContent = e.target.value; };
     $('tempInput').onchange = e => { state.temperature = +e.target.value; saveState(); };
     $('themeToggle').onchange = e => { state.theme = e.target.checked ? 'dark' : 'light'; document.documentElement.classList.toggle('dark', e.target.checked); saveState(); };
     $('ttsToggle').onchange = e => { state.autoRead = e.target.checked; saveState(); };
-
+    ttsProviderSelect.onchange = e => { state.ttsProvider = e.target.value; $('openaiVoiceContainer').classList.toggle('hidden', e.target.value !== 'openai'); saveState(); };
+    openaiVoiceSelect.onchange = e => { state.openaiVoice = e.target.value; saveState(); };
+    langSelect.onchange = e => { state.language = e.target.value; saveState(); localizeUI(); renderSettings(); };
+    setupDataButtons();
     populateModelVisibilityList();
+    localizeUI();
 }
-
-async function populateModelVisibilityList() {
-    const listDiv = $('modelVisibilityList');
-    if (!listDiv) return;
-    listDiv.innerHTML = 'Loading...';
-    if (!state.apiKey) { listDiv.innerHTML = 'Please enter an API key to see model list.'; return; }
-
-    try {
-        const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + state.apiKey }});
-        if (!r.ok) throw new Error('Failed to fetch models');
-        const models = (await r.json()).data.map(m => m.id).filter(id => /^gpt-/.test(id) && !id.includes('instruct')).sort();
-        
-        listDiv.innerHTML = '';
-        models.forEach(modelId => {
-            const label = document.createElement('label');
-            label.className = 'flex items-center gap-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600';
-            const isVisible = state.modelVisibility[modelId] !== false; // Default to visible
-            label.innerHTML = `<input type="checkbox" class="model-visibility-toggle accent-blue-600" data-model-id="${modelId}" ${isVisible ? 'checked' : ''}><span>${modelId}</span>`;
-            listDiv.appendChild(label);
-        });
-
-        listDiv.querySelectorAll('.model-visibility-toggle').forEach(toggle => {
-            toggle.onchange = (e) => {
-                state.modelVisibility[e.target.dataset.modelId] = e.target.checked;
-                saveState();
-            };
-        });
-    } catch (e) {
-        listDiv.innerHTML = 'Could not fetch models. Check your API key.';
-        console.error(e);
-    }
+function keyUI(has) { if (!$('apiStatus')) return; const status = $('apiStatus'); status.innerHTML = has ? loc('api_key_saved') + ` <button id="resetKeyBtn" class="ml-2 text-red-500 underline focus-trap">${loc('change')}</button>` : ''; status.classList.toggle('hidden', !has); $('apiKeyContainer').style.display = has ? 'none' : 'block'; if (has) $('resetKeyBtn').onclick = () => { state.apiKey = ''; saveState(); keyUI(false); $('apiKeyInput').value = ''; showToast(loc('api_key_removed')); }; }
+async function populateModelVisibilityList() { const listDiv = $('modelVisibilityList'); if (!listDiv) return; listDiv.innerHTML = `<div class="flex items-center gap-2 text-gray-400"><div class="loader"></div><span>Fetching models...</span></div>`; if (!state.apiKey) { listDiv.innerHTML = 'Enter API key.'; return; } try { const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + state.apiKey }}); if (!r.ok) throw new Error('Failed to fetch'); const models = (await r.json()).data.map(m => m.id).filter(id => /^gpt-/.test(id) && !id.includes('instruct')).sort(); listDiv.innerHTML = ''; models.forEach(id => { const label = document.createElement('label'); label.className = 'flex items-center gap-3 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600'; const isVisible = state.modelVisibility[id] !== false; label.innerHTML = `<input type="checkbox" class="model-visibility-toggle form-checkbox rounded" data-model-id="${id}" ${isVisible ? 'checked' : ''}><span>${id}</span>`; listDiv.appendChild(label); }); listDiv.querySelectorAll('.model-visibility-toggle').forEach(toggle => { toggle.onchange = e => { state.modelVisibility[e.target.dataset.modelId] = e.target.checked; saveState(); }; }); } catch (e) { listDiv.innerHTML = '<span class="text-red-500">Could not fetch models.</span>'; console.error(e); } }
+function setupDataButtons() {
+    $('exportPdfBtn').onclick = async () => { const th = state.threads.find(x => x.id === state.currentThread); if (!th) return showToast('No thread selected.'); showToast('Generating PDF...'); const chatEl = $('chat'); const canvas = await html2canvas(chatEl, { scale: 2, logging: false, useCORS: true, backgroundColor: state.theme === 'dark' ? '#111827' : '#ffffff' }); const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const pdfWidth = pdf.internal.pageSize.getWidth(); const canvasWidth = canvas.width; const ratio = canvasWidth / pdfWidth; const imgHeight = canvas.height / ratio; let heightLeft = imgHeight; let position = 0; pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdf.internal.pageSize.getHeight(); while (heightLeft > 0) { position = -heightLeft; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdf.internal.pageSize.getHeight(); } pdf.save(`${th.title.replace(/ /g, '_')}.pdf`); };
+    $('importBtn').onclick = () => $('importFileInput').click();
+    $('importFileInput').onchange = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { try { const imported = JSON.parse(re.target.result); if(Array.isArray(imported)) state.threads = imported; else if(imported.threads) state = {...state, ...imported}; else throw new Error("Invalid format"); state.currentThread = state.threads[0]?.id || null; saveState(); renderThreads(); loadThread(); showToast('Import successful!'); } catch(err){ showToast('Import failed: ' + err.message); } }; reader.readAsText(file); } };
+    $('setEncryptionBtn').onclick = () => { const phrase = prompt('Enter a passphrase to encrypt your chats. LEAVE BLANK to disable encryption.'); if (phrase === null) return; state.isEncrypted = !!phrase; state.encryptionKey = phrase; saveState(); showToast(phrase ? 'Encryption enabled!' : 'Encryption disabled.'); };
+    $('exportAllBtn').onclick = () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const a = document.createElement('a'); a.href = dataStr; a.download = `chat_export_${Date.now()}.json`; a.click(); showToast('All application data exported.'); };
 }
+function renderPrompts() { const listDiv = $('promptList'); listDiv.innerHTML = ''; (state.prompts || []).forEach((p, i) => { const div = document.createElement('div'); div.className = 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center'; div.innerHTML = `<span>${p.name}</span><div class="flex gap-1"><button class="use-prompt bg-blue-500 text-white text-xs px-2 py-1 rounded">Use</button><button class="del-prompt bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button></div>`; div.querySelector('.use-prompt').onclick = () => { ta.value = p.text; modalAction('promptLibraryModal', 'close'); updateSendButton(); }; div.querySelector('.del-prompt').onclick = () => { state.prompts.splice(i, 1); saveState(); renderPrompts(); }; listDiv.appendChild(div); }); }
+$('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(), text = ta.value.trim(); if (name && text) { if(!state.prompts) state.prompts = []; state.prompts.push({ name, text }); $('newPromptName').value = ''; saveState(); renderPrompts(); } };
 
-function keyUI(has) {
-    if (!$('apiStatus')) return;
-    $('apiStatus').classList.toggle('hidden', !has);
-    $('apiKeyContainer').style.display = has ? 'none' : 'block';
-}
-
-/* ─── Initial Load ───────────────────────── */
-initializeApp();
 });
 </script>
 </body>
 </html>
+                          
