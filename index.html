@@ -13,7 +13,7 @@
         content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
                  img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
                  style-src 'self' 'unsafe-inline' https://*.tailwindcss.com;
-                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net https://*.tailwindcss.com https://cdnjs.cloudflare.com blob:;
+                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net blob:;
                  worker-src 'self' blob:; media-src 'self' blob:;">
 
   <!-- Libs: Tailwind, marked, DOMPurify, tiktoken, jsPDF, html2canvas -->
@@ -23,7 +23,7 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/init.js"; window.tiktoken = tiktoken;</script>
+  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init"; window.tiktoken = tiktoken;</script>
 
   <style>
     :root { --toast-translate-y: 120%; }
@@ -43,9 +43,6 @@
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-
------
-
 
 <body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
 
@@ -79,23 +76,27 @@
     <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="config">Configuration</h3><div><label class="text-sm font-medium loc" data-loc="api_key">API Key</label><div id="apiKeyContainer" class="relative"><input id="apiKeyInput" type="password" placeholder="sk-..." class="form-input w-full mt-1 dark:bg-gray-700 dark:border-gray-600"><button id="saveKeyBtn" class="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-2 py-0.5 rounded focus-trap loc" data-loc="save">Save</button></div><div id="apiStatus" class="hidden text-green-500 text-sm mt-1"></div></div><div><label class="text-sm font-medium">Default Temperature: <span id="tempLabel"></span></label><input id="tempInput" type="range" min="0" max="2" step="0.05" class="w-full mt-1"></div><div class="flex items-center justify-between"><label class="text-sm font-medium loc" data-loc="language">Language</label><select id="languageSelect" class="form-select dark:bg-gray-700 dark:border-gray-600 rounded-md text-sm py-1"></select></div><label class="flex items-center gap-3"><input id="themeToggle" type="checkbox" class="form-checkbox rounded"><span>Use Dark Mode</span></label></div>
     <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="audio">Audio</h3><label class="flex items-center gap-3"><input id="ttsToggle" type="checkbox" class="form-checkbox rounded"><span>Auto-play TTS on response</span></label><div><label for="ttsProvider" class="text-sm font-medium loc" data-loc="tts_provider">TTS Provider</label><select id="ttsProvider" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div><div id="openaiVoiceContainer" class="hidden"><label for="openaiVoice" class="text-sm font-medium loc" data-loc="openai_voice">OpenAI Voice</label><select id="openaiVoice" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div></div>
     <div class="md:col-span-2 space-y-2"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="security_data">Security & Data</h3><div class="flex gap-2 flex-wrap"><button id="setEncryptionBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="set_encryption">Set Encryption Passphrase</button><button id="exportPdfBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="export_pdf">Export Thread to PDF</button><button id="importBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="import_json">Import from JSON</button></div></div>
+    
+    <!-- THIS IS THE MISSING SECTION THAT HAS BEEN RESTORED -->
+    <div class="md:col-span-2 space-y-2">
+      <h3 class="text-lg font-medium border-b pb-2 loc" data-loc="model_management">Model Management</h3>
+      <p class="text-xs text-gray-500 loc" data-loc="model_management_desc">Select which models appear in the model switcher. Requires a valid API key.</p>
+      <div id="modelVisibilityList" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-1 max-h-48 overflow-y-auto pr-2">
+          <!-- Model toggles will be populated here by JS -->
+      </div>
+    </div>
+    <!-- END OF RESTORED SECTION -->
+
   </div>
   <div class="mt-6 pt-4 border-t"><p class="text-xs text-gray-500">ChatGPT Polished Client v5.0 | <button id="tosOpener" class="underline loc" data-loc="tos_privacy">Terms of Service & Privacy</button></p></div>
 </template>
-
-
-
 
 <script type="module">
 // Initialize Libraries
 const { jsPDF } = window.jspdf;
 const { html2canvas } = window;
 
-// -----------------------------------------------------------------
-// CHANGE: The "DOMContentLoaded" event listener wrapper was removed
-// from here. It is not needed with <script type="module"> and was
-// preventing the code from running.
-// -----------------------------------------------------------------
+// THE DOMContentLoaded WRAPPER THAT WAS BREAKING THE BUTTONS HAS BEEN REMOVED
 
 /* ─── Globals, State & Helpers ────────────────── */
 const $ = id => document.getElementById(id);
@@ -104,25 +105,14 @@ const VISION_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision-pre
 const TARIFF = { 'gpt-4o': [0.005, 0.015], 'gpt-4o-mini': [0.00015, 0.0006], 'gpt-4-turbo': [0.01, 0.03], 'gpt-4-vision-preview': [0.01, 0.03], 'gpt-4': [0.03, 0.06], 'gpt-4-32k': [0.06, 0.12], 'gpt-3.5-turbo': [0.0005, 0.0015] };
 const DEFAULT_RATE = [0.01, 0.03];
 const L = {
-    en: { unlock_title: "Unlock Chats", unlock_desc: "Enter your passphrase to decrypt and unlock your chats.", unlock_btn: "Unlock", switch_model: "Switch model", settings: "Settings", prompt_library: "Prompt Library", export_all: "Export All Chats", web_search_label: "Search the web", save_current_prompt: "Save Current Prompt", config: "Configuration", api_key: "API Key", save: "Save", audio: "Audio", tts_provider: "TTS Provider", openai_voice: "OpenAI Voice", security_data: "Security & Data", set_encryption: "Set Encryption Passphrase", export_pdf: "Export Thread to PDF", import_json: "Import from JSON", tos_privacy: "Terms of Service & Privacy", language: "Language", api_key_saved: "API Key saved.", change: "Change", api_key_removed: "API Key removed." },
-    es: { unlock_title: "Desbloquear Chats", unlock_desc: "Ingrese su contraseña para descifrar y desbloquear sus chats.", unlock_btn: "Desbloquear", switch_model: "Cambiar Modelo", settings: "Ajustes", prompt_library: "Biblioteca de Prompts", export_all: "Exportar Todos los Chats", web_search_label: "Buscar en la web", save_current_prompt: "Guardar Prompt Actual", config: "Configuración", api_key: "Clave de API", save: "Guardar", audio: "Audio", tts_provider: "Proveedor de TTS", openai_voice: "Voz de OpenAI", security_data: "Seguridad y Datos", set_encryption: "Establecer Contraseña de Cifrado", export_pdf: "Exportar Hilo a PDF", import_json: "Importar desde JSON", tos_privacy: "Términos de Servicio y Privacidad", language: "Idioma", api_key_saved: "Clave de API guardada.", change: "Cambiar", api_key_removed: "Clave de API eliminada." }
+    en: { unlock_title: "Unlock Chats", unlock_desc: "Enter your passphrase to decrypt and unlock your chats.", unlock_btn: "Unlock", switch_model: "Switch model", settings: "Settings", prompt_library: "Prompt Library", export_all: "Export All Chats", web_search_label: "Search the web", save_current_prompt: "Save Current Prompt", config: "Configuration", api_key: "API Key", save: "Save", audio: "Audio", tts_provider: "TTS Provider", openai_voice: "OpenAI Voice", security_data: "Security & Data", set_encryption: "Set Encryption Passphrase", export_pdf: "Export Thread to PDF", import_json: "Import from JSON", tos_privacy: "Terms of Service & Privacy", language: "Language", api_key_saved: "API Key saved.", change: "Change", api_key_removed: "API Key removed.", model_management: "Model Management", model_management_desc: "Select which models appear in the model switcher. Requires a valid API key." },
+    es: { unlock_title: "Desbloquear Chats", unlock_desc: "Ingrese su contraseña para descifrar y desbloquear sus chats.", unlock_btn: "Desbloquear", switch_model: "Cambiar Modelo", settings: "Ajustes", prompt_library: "Biblioteca de Prompts", export_all: "Exportar Todos los Chats", web_search_label: "Buscar en la web", save_current_prompt: "Guardar Prompt Actual", config: "Configuración", api_key: "Clave de API", save: "Guardar", audio: "Audio", tts_provider: "Proveedor de TTS", openai_voice: "Voz de OpenAI", security_data: "Seguridad y Datos", set_encryption: "Establecer Contraseña de Cifrado", export_pdf: "Exportar Hilo a PDF", import_json: "Importar desde JSON", tos_privacy: "Términos de Servicio y Privacidad", language: "Idioma", api_key_saved: "Clave de API guardada.", change: "Cambiar", api_key_removed: "Clave de API eliminada.", model_management: "Gestión de Modelos", model_management_desc: "Seleccione qué modelos aparecen en el selector de modelos. Requiere una clave de API válida." }
 };
 
 let state = {
-    apiKey: '',
-    theme: 'light',
-    model: 'gpt-4o',
-    temperature: 1.0,
-    autoRead: false,
-    threads: [],
-    currentThread: null,
-    modelVisibility: {},
-    prompts: [],
-    isEncrypted: false,
-    encryptionKey: null,
-    ttsProvider: 'browser',
-    openaiVoice: 'alloy',
-    language: 'en'
+    apiKey: '', theme: 'light', model: 'gpt-4o', temperature: 1.0, autoRead: false,
+    threads: [], currentThread: null, modelVisibility: {}, prompts: [],
+    isEncrypted: false, encryptionKey: null, ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en'
 };
 let tokenizer, currentAudioPlayer, attachedImages = [];
 
@@ -135,7 +125,7 @@ async function initializeApp() {
     await loadState();
     // Attempt to load tokenizer in the background
     try {
-        await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/tiktoken_bg.wasm", import.meta.url), imports));
+        await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
         tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
     } catch (e) { console.error("Tokenizer failed to load. Using approximation.", e); }
 }
@@ -161,6 +151,7 @@ async function loadState() {
 function firstRunSetup() { $('tosModal').classList.replace('hidden', 'flex'); $('tosContent').innerHTML = `<h2>Welcome!</h2><p>This is a client-side application. Your API key and chats are stored in your browser's LocalStorage. By using this app, you agree to take responsibility for securing your own data and API key. No data is sent to any server except OpenAI's official API.</p><p>Please set your API key in the settings to begin.</p>`; setupUI(); }
 async function saveState() { let stateToSave = { ...state }; delete stateToSave.encryptionKey; let dataToStore = JSON.stringify(stateToSave); if (state.isEncrypted && state.encryptionKey) { dataToStore = await encrypt(dataToStore, state.encryptionKey); } localStorage.setItem('appState', dataToStore); }
 function setupUI() { document.documentElement.lang = state.language; document.documentElement.classList.toggle('dark', state.theme === 'dark'); $('currentModel').textContent = state.model; updateAttachButtonVisibility(); if (!state.currentThread && state.threads.length > 0) state.currentThread = state.threads[0].id; renderThreads(); loadThread(); localizeUI(); }
+function updateAttachButtonVisibility() { const isVision = VISION_MODELS.some(m => state.model.startsWith(m)); $('attachBtn').classList.toggle('hidden', !isVision); }
 function registerServiceWorker() { if ('serviceWorker' in navigator) { const swJS = `const CACHE_NAME='chat-final-v1';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE_NAME).then(c=>c.add('/'))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`; navigator.serviceWorker.register(`data:text/javascript,${encodeURIComponent(swJS)}`).catch(e => console.error('SW registration failed:', e)); } }
 async function deriveKey(passphrase, salt) { const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']); return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']); }
 async function encrypt(data, key) { const iv = crypto.getRandomValues(new Uint8Array(12)), salt = crypto.getRandomValues(new Uint8Array(16)); const derivedKey = await deriveKey(key, salt); const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, derivedKey, new TextEncoder().encode(data)); const buffer = new Uint8Array(salt.length + iv.length + ciphertext.byteLength); buffer.set(salt, 0); buffer.set(iv, salt.length); buffer.set(new Uint8Array(ciphertext), salt.length + iv.length); return btoa(String.fromCharCode.apply(null, buffer)); }
@@ -194,9 +185,6 @@ function updateCostUI(last, total) { $('liveCost').textContent = `≈$${total.to
 async function regenerateResponse(assistantMsgIndex) { const th = state.threads.find(x => x.id === state.currentThread); if (!th || assistantMsgIndex === 0) return; th.cost -= (th.messages[assistantMsgIndex].cost || 0); th.messages.splice(assistantMsgIndex); loadThread(); await sendMsg(th.messages[th.messages.length - 1].content, true); }
 function handleFileAttachment(e) { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { attachedImages.push({ data: re.target.result }); renderImagePreviews(); updateSendButton(); }; reader.readAsDataURL(file); } e.target.value = null; }
 function renderImagePreviews() { const container = $('imagePreviews'); container.innerHTML = ''; attachedImages.forEach((img, index) => { const div = document.createElement('div'); div.className = 'relative'; div.innerHTML = `<img src="${img.data}" class="h-16 w-16 object-cover rounded-md"><button class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">×</button>`; div.querySelector('button').onclick = () => { attachedImages.splice(index, 1); renderImagePreviews(); updateSendButton(); }; container.appendChild(div); }); }
-
-
-  ------
 
 /* ─── API & Audio ────────────────── */
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) { try { const res = await fetch(url, options); if (!res.ok && (res.status === 429 || res.status >= 500) && retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } return res; } catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } throw err; } }
@@ -261,19 +249,23 @@ async function sendMsg(contentOverride = null, isRegen = false) {
                 if (line.startsWith('data: ')) {
                     const data = line.substring(6);
                     if (data.trim() === '[DONE]') break;
-                    const parsed = JSON.parse(data);
-                    const delta = parsed.choices[0].delta;
-                    if (delta.content) {
-                        acc += delta.content;
-                        contentDiv.innerHTML = md(acc);
-                    }
-                    if (delta.tool_calls) {
-                        // This part handles the visual feedback that a tool is being used
-                        const toolCall = delta.tool_calls[0];
-                        if (toolCall.function.name) { // First part of tool call
-                            const systemMsg = document.querySelector('#chat .text-center');
-                            if (systemMsg) systemMsg.innerHTML = `<div class="loader"></div> Executing search...`;
+                    try {
+                        const parsed = JSON.parse(data);
+                        const delta = parsed.choices[0].delta;
+                        if (delta.content) {
+                            acc += delta.content;
+                            contentDiv.innerHTML = md(acc);
                         }
+                        if (delta.tool_calls) {
+                            const toolCall = delta.tool_calls[0];
+                            if (toolCall.function.name) {
+                                const systemMsg = document.querySelector('#chat .text-center');
+                                if (systemMsg) systemMsg.innerHTML = `<div class="loader"></div> Executing search...`;
+                            }
+                        }
+                    } catch (e) {
+                        // Sometimes a chunk might be incomplete JSON, ignore and continue
+                        console.warn("Could not parse stream chunk:", data);
                     }
                 }
             }
@@ -284,9 +276,8 @@ async function sendMsg(contentOverride = null, isRegen = false) {
         th.cost = (th.cost || 0) + cost;
 
         const newAssistantMsg = { role: 'assistant', content: acc, cost };
-        th.messages[assistantMsgIndex] = newAssistantMsg; // Finalize the message in the state
+        th.messages[assistantMsgIndex] = newAssistantMsg;
         
-        // Refresh the single message div with the final content and actions
         currentMessageDiv.parentElement.remove();
         addMsg(newAssistantMsg, assistantMsgIndex);
 
@@ -296,7 +287,7 @@ async function sendMsg(contentOverride = null, isRegen = false) {
 
     } catch (err) {
         console.error(err);
-        if (currentMessageDiv) currentMessageDiv.parentElement.remove(); // Remove the placeholder on error
+        if (currentMessageDiv) currentMessageDiv.parentElement.remove();
         addMsg({role: 'assistant', content: `⚠️ Error: ${err.message}`}, -1);
     } finally {
         saveState();
@@ -335,9 +326,7 @@ async function toggleTTS(text, btn) {
     }
 }
 
-
-
-  /* ─── Modals, Settings & Data I/O ────────────────── */
+/* ─── Modals, Settings & Data I/O ────────────────── */
 function setupModal(modalId, openBtnId, beforeOpen) { const openBtn = $(openBtnId); if(openBtn) openBtn.onclick = () => { if (beforeOpen) beforeOpen(); modalAction(modalId, 'open'); }; $(`close${modalId.charAt(0).toUpperCase() + modalId.slice(1)}`).onclick = () => modalAction(modalId, 'close'); }
 setupModal('modelModal', 'modelBtn', populateModels);
 setupModal('settingsModal', 'settingsOpener', renderSettings);
@@ -380,10 +369,6 @@ function setupDataButtons() {
 function renderPrompts() { const listDiv = $('promptList'); listDiv.innerHTML = ''; (state.prompts || []).forEach((p, i) => { const div = document.createElement('div'); div.className = 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center'; div.innerHTML = `<span>${p.name}</span><div class="flex gap-1"><button class="use-prompt bg-blue-500 text-white text-xs px-2 py-1 rounded">Use</button><button class="del-prompt bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button></div>`; div.querySelector('.use-prompt').onclick = () => { ta.value = p.text; modalAction('promptLibraryModal', 'close'); updateSendButton(); }; div.querySelector('.del-prompt').onclick = () => { state.prompts.splice(i, 1); saveState(); renderPrompts(); }; listDiv.appendChild(div); }); }
 $('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(), text = ta.value.trim(); if (name && text) { if(!state.prompts) state.prompts = []; state.prompts.push({ name, text }); $('newPromptName').value = ''; saveState(); renderPrompts(); } };
 
-// -----------------------------------------------------------------
-// CHANGE: The closing "});" for the event listener was removed
-// from here.
-// -----------------------------------------------------------------
 </script>
 </body>
 </html>
