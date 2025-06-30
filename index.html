@@ -13,7 +13,7 @@
         content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
                  img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
                  style-src 'self' 'unsafe-inline' https://*.tailwindcss.com;
-                 script-src 'self' 'unsafe-inline' https://*.tailwindcss.com https://*.jsdelivr.net blob:;
+                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net blob:;
                  worker-src 'self' blob:; media-src 'self' blob:;">
 
   <!-- Libs: Tailwind, marked, DOMPurify, tiktoken, jsPDF, html2canvas -->
@@ -84,6 +84,7 @@
 </template>
 
 
+
 ----
 
 <script type="module">
@@ -91,7 +92,12 @@
 const { jsPDF } = window.jspdf;
 const { html2canvas } = window;
 
-document.addEventListener('DOMContentLoaded', () => {
+// -----------------------------------------------------------------
+// CHANGE: The "DOMContentLoaded" event listener wrapper was removed
+// from here. It is not needed with <script type="module"> and was
+// preventing the code from running.
+// -----------------------------------------------------------------
+
 /* ─── Globals, State & Helpers ────────────────── */
 const $ = id => document.getElementById(id);
 const md = txt => DOMPurify.sanitize(marked.parse(txt, { gfm: true, breaks: true, smartLists: true }));
@@ -180,8 +186,7 @@ function handleFileAttachment(e) { const file = e.target.files[0]; if (file) { c
 function renderImagePreviews() { const container = $('imagePreviews'); container.innerHTML = ''; attachedImages.forEach((img, index) => { const div = document.createElement('div'); div.className = 'relative'; div.innerHTML = `<img src="${img.data}" class="h-16 w-16 object-cover rounded-md"><button class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">×</button>`; div.querySelector('button').onclick = () => { attachedImages.splice(index, 1); renderImagePreviews(); updateSendButton(); }; container.appendChild(div); }); }
 
 
-
-------
+  ------
 
 /* ─── API & Audio ────────────────── */
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) { try { const res = await fetch(url, options); if (!res.ok && (res.status === 429 || res.status >= 500) && retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } return res; } catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } throw err; } }
@@ -320,7 +325,9 @@ async function toggleTTS(text, btn) {
     }
 }
 
-/* ─── Modals, Settings & Data I/O ────────────────── */
+
+
+  /* ─── Modals, Settings & Data I/O ────────────────── */
 function setupModal(modalId, openBtnId, beforeOpen) { const openBtn = $(openBtnId); if(openBtn) openBtn.onclick = () => { if (beforeOpen) beforeOpen(); modalAction(modalId, 'open'); }; $(`close${modalId.charAt(0).toUpperCase() + modalId.slice(1)}`).onclick = () => modalAction(modalId, 'close'); }
 setupModal('modelModal', 'modelBtn', populateModels);
 setupModal('settingsModal', 'settingsOpener', renderSettings);
@@ -363,7 +370,10 @@ function setupDataButtons() {
 function renderPrompts() { const listDiv = $('promptList'); listDiv.innerHTML = ''; (state.prompts || []).forEach((p, i) => { const div = document.createElement('div'); div.className = 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center'; div.innerHTML = `<span>${p.name}</span><div class="flex gap-1"><button class="use-prompt bg-blue-500 text-white text-xs px-2 py-1 rounded">Use</button><button class="del-prompt bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button></div>`; div.querySelector('.use-prompt').onclick = () => { ta.value = p.text; modalAction('promptLibraryModal', 'close'); updateSendButton(); }; div.querySelector('.del-prompt').onclick = () => { state.prompts.splice(i, 1); saveState(); renderPrompts(); }; listDiv.appendChild(div); }); }
 $('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(), text = ta.value.trim(); if (name && text) { if(!state.prompts) state.prompts = []; state.prompts.push({ name, text }); $('newPromptName').value = ''; saveState(); renderPrompts(); } };
 
-});
+// -----------------------------------------------------------------
+// CHANGE: The closing "});" for the event listener was removed
+// from here.
+// -----------------------------------------------------------------
 </script>
 </body>
-</html>  
+</html>
