@@ -148,14 +148,24 @@ const ta = $('userInput'), sendBtn = $('sendBtn');
 const updateSendButton = () => { sendBtn.disabled = ta.value.trim().length === 0 && attachedImages.length === 0; };
 ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 256) + 'px'; updateSendButton(); });
 const modalAction = (modalId, action) => $(modalId).classList.replace(action === 'open' ? 'hidden' : 'flex', action === 'open' ? 'flex' : 'hidden');
-$('menuBtn').onclick = () => $('sidebar').classList.add('open');
-// FIX: Restored the correct logic to close the sidebar
+
+// FIX: Changed to .toggle('open') to make the button open AND close the sidebar.
+$('menuBtn').onclick = () => $('sidebar').classList.toggle('open');
 $('closeSidebar').onclick = () => $('sidebar').classList.remove('open');
 $('newChatBtnHeader').onclick = newThread;
 $('attachBtn').onclick = () => $('attachFileInput').click();
 $('attachFileInput').onchange = handleFileAttachment;
 sendBtn.onclick = () => sendMsg();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modelModal', 'settingsModal', 'promptLibraryModal', 'tosModal'].forEach(id => modalAction(id, 'close')); } });
+
+// FIX: Added event listener to close the sidebar when clicking outside of it.
+document.addEventListener('click', (e) => {
+    const sidebar = $('sidebar');
+    const menuBtn = $('menuBtn');
+    if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !menuBtn.contains(e.target)) {
+        sidebar.classList.remove('open');
+    }
+});
 
 /* ─── Thread Management & Rendering ────────────────── */
 function renderThreads() { const ul = $('threadList'); ul.innerHTML = ''; state.threads.forEach(t => { const li = document.createElement('li'); li.className = `p-2 rounded flex items-center justify-between cursor-pointer ${t.id === state.currentThread ? 'bg-blue-100 dark:bg-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`; li.innerHTML = `<span class="flex-1 truncate">${t.title}</span><span class="text-xs opacity-70 mr-1">$${(t.cost || 0).toFixed(4)}</span>`; li.onclick = () => { if (state.currentThread === t.id) return; state.currentThread = t.id; saveState(); renderThreads(); loadThread(); $('sidebar').classList.remove('open'); }; ul.appendChild(li); }); }
@@ -198,12 +208,12 @@ async function sendMsg(contentOverride = null, isRegen = false) {
         th.messages.push({ role: 'user', content: userMessageContent });
         addMsg(th.messages[th.messages.length - 1], th.messages.length - 1);
     }
-    if (th.title === 'New Chat') {
+    if (!th.title || th.title === 'New Chat') {
         th.title = typeof userMessageContent === 'string' ? userMessageContent.slice(0, 30) : (userMessageContent.find(p => p.type === 'text')?.text.slice(0, 30) || 'Image Query');
     }
     ta.value = ''; attachedImages = []; renderImagePreviews(); updateSendButton(); ta.dispatchEvent(new Event('input'));
   
-    const requestBody = { model: state.model, messages: th.messages, temperature: state.temperature, stream: true };
+    const requestBody = { model: state.model, messages: th.messages.map(({cost, ...rest}) => rest), temperature: state.temperature, stream: true };
     if ($('webSearchToggle').checked) {
         requestBody.tools = [{ type: 'web_search' }];
         $('webSearchToggle').checked = false; // Reset after use
@@ -212,9 +222,9 @@ async function sendMsg(contentOverride = null, isRegen = false) {
     const inT = await calculateTokens(JSON.stringify(requestBody));
     let acc = '', outT = 0, toolCallAcc = '';
     
-    // Create a single div for the assistant response that will be updated
     const assistantMsgIndex = th.messages.length;
-    addMsg({role: 'assistant', content: '...'}, assistantMsgIndex);
+    th.messages.push({role: 'assistant', content: '...'});
+    addMsg(th.messages[assistantMsgIndex], assistantMsgIndex);
     const currentMessageDiv = $(`msg-${assistantMsgIndex}`);
     const contentDiv = currentMessageDiv.querySelector('.prose');
 
@@ -263,17 +273,18 @@ async function sendMsg(contentOverride = null, isRegen = false) {
         const newAssistantMsg = { role: 'assistant', content: acc, cost };
         th.messages[assistantMsgIndex] = newAssistantMsg;
         
-        currentMessageDiv.parentElement.remove();
-        addMsg(newAssistantMsg, assistantMsgIndex);
+        contentDiv.innerHTML = md(acc);
+        const actionsDiv = currentMessageDiv.querySelector('.msg-actions');
+        if (actionsDiv) actionsDiv.style.opacity = 1; // Make actions visible on completion
 
         if (state.autoRead && !isRegen) {
-            toggleTTS(newAssistantMsg.content, document.querySelector(`#msg-${assistantMsgIndex} .speak-btn`));
+            toggleTTS(newAssistantMsg.content, currentMessageDiv.querySelector('.speak-btn'));
         }
 
     } catch (err) {
         console.error(err);
-        if (currentMessageDiv) currentMessageDiv.parentElement.remove();
-        addMsg({role: 'assistant', content: `⚠️ Error: ${err.message}`}, -1);
+        th.messages[assistantMsgIndex].content = `⚠️ Error: ${err.message}`;
+        contentDiv.innerHTML = `⚠️ Error: ${err.message}`;
     } finally {
         saveState();
         renderThreads();
