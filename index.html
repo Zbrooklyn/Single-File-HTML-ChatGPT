@@ -13,7 +13,7 @@
         content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
                  img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
                  style-src 'self' 'unsafe-inline' https://*.tailwindcss.com;
-                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net blob:;
+                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net https://*.tailwindcss.com https://cdnjs.cloudflare.com blob:;
                  worker-src 'self' blob:; media-src 'self' blob:;">
 
   <!-- Libs: Tailwind, marked, DOMPurify, tiktoken, jsPDF, html2canvas -->
@@ -23,7 +23,7 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init"; window.tiktoken = tiktoken;</script>
+  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init.js"; window.tiktoken = tiktoken;</script>
 
   <style>
     :root { --toast-translate-y: 120%; }
@@ -85,7 +85,6 @@
 
 
 
-----
 
 <script type="module">
 // Initialize Libraries
