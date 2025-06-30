@@ -8,13 +8,15 @@
   <meta name="description" content="A feature-complete, privacy-first, single-file client for OpenAI models.">
   <link rel="manifest" href="data:application/manifest+json,{"name":"ChatGPT Polished","short_name":"Chat","start_url":".","display":"standalone","background_color":"#111827","theme_color":"#2563eb","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}">
 
-  <!-- Content-Security-Policy -->
+  <!-- Content-Security-Policy (CORRECTED) -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
                  img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
                  style-src 'self' 'unsafe-inline' https://*.tailwindcss.com;
-                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net blob:;
-                 worker-src 'self' blob:; media-src 'self' blob:;">
+                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net https://cdn.tailwindcss.com https://cdnjs.cloudflare.com blob:;
+                 worker-src 'self' blob:;
+                 media-src 'self' blob:;
+                 manifest-src data:;">
 
   <!-- Libs: Tailwind, marked, DOMPurify, tiktoken, jsPDF, html2canvas -->
   <script src="https://cdn.tailwindcss.com?plugins=typography,forms"></script>
@@ -23,7 +25,8 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init"; window.tiktoken = tiktoken;</script>
+  <!-- tiktoken URL (CORRECTED) -->
+  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init.js"; window.tiktoken = tiktoken;</script>
 
   <style>
     :root { --toast-translate-y: 120%; }
@@ -76,17 +79,12 @@
     <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="config">Configuration</h3><div><label class="text-sm font-medium loc" data-loc="api_key">API Key</label><div id="apiKeyContainer" class="relative"><input id="apiKeyInput" type="password" placeholder="sk-..." class="form-input w-full mt-1 dark:bg-gray-700 dark:border-gray-600"><button id="saveKeyBtn" class="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-2 py-0.5 rounded focus-trap loc" data-loc="save">Save</button></div><div id="apiStatus" class="hidden text-green-500 text-sm mt-1"></div></div><div><label class="text-sm font-medium">Default Temperature: <span id="tempLabel"></span></label><input id="tempInput" type="range" min="0" max="2" step="0.05" class="w-full mt-1"></div><div class="flex items-center justify-between"><label class="text-sm font-medium loc" data-loc="language">Language</label><select id="languageSelect" class="form-select dark:bg-gray-700 dark:border-gray-600 rounded-md text-sm py-1"></select></div><label class="flex items-center gap-3"><input id="themeToggle" type="checkbox" class="form-checkbox rounded"><span>Use Dark Mode</span></label></div>
     <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="audio">Audio</h3><label class="flex items-center gap-3"><input id="ttsToggle" type="checkbox" class="form-checkbox rounded"><span>Auto-play TTS on response</span></label><div><label for="ttsProvider" class="text-sm font-medium loc" data-loc="tts_provider">TTS Provider</label><select id="ttsProvider" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div><div id="openaiVoiceContainer" class="hidden"><label for="openaiVoice" class="text-sm font-medium loc" data-loc="openai_voice">OpenAI Voice</label><select id="openaiVoice" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div></div>
     <div class="md:col-span-2 space-y-2"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="security_data">Security & Data</h3><div class="flex gap-2 flex-wrap"><button id="setEncryptionBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="set_encryption">Set Encryption Passphrase</button><button id="exportPdfBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="export_pdf">Export Thread to PDF</button><button id="importBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="import_json">Import from JSON</button></div></div>
-    
-    <!-- THIS IS THE MISSING SECTION THAT HAS BEEN RESTORED -->
     <div class="md:col-span-2 space-y-2">
       <h3 class="text-lg font-medium border-b pb-2 loc" data-loc="model_management">Model Management</h3>
       <p class="text-xs text-gray-500 loc" data-loc="model_management_desc">Select which models appear in the model switcher. Requires a valid API key.</p>
       <div id="modelVisibilityList" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-1 max-h-48 overflow-y-auto pr-2">
-          <!-- Model toggles will be populated here by JS -->
       </div>
     </div>
-    <!-- END OF RESTORED SECTION -->
-
   </div>
   <div class="mt-6 pt-4 border-t"><p class="text-xs text-gray-500">ChatGPT Polished Client v5.0 | <button id="tosOpener" class="underline loc" data-loc="tos_privacy">Terms of Service & Privacy</button></p></div>
 </template>
@@ -95,8 +93,6 @@
 // Initialize Libraries
 const { jsPDF } = window.jspdf;
 const { html2canvas } = window;
-
-// THE DOMContentLoaded WRAPPER THAT WAS BREAKING THE BUTTONS HAS BEEN REMOVED
 
 /* ─── Globals, State & Helpers ────────────────── */
 const $ = id => document.getElementById(id);
@@ -264,7 +260,6 @@ async function sendMsg(contentOverride = null, isRegen = false) {
                             }
                         }
                     } catch (e) {
-                        // Sometimes a chunk might be incomplete JSON, ignore and continue
                         console.warn("Could not parse stream chunk:", data);
                     }
                 }
