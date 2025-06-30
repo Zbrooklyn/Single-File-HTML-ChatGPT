@@ -8,7 +8,7 @@
   <meta name="description" content="A feature-complete, privacy-first, single-file client for OpenAI models.">
   <link rel="manifest" href="data:application/manifest+json,{"name":"ChatGPT Polished","short_name":"Chat","start_url":".","display":"standalone","background_color":"#111827","theme_color":"#2563eb","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}">
 
-  <!-- Content-Security-Policy (CORRECTED) -->
+  <!-- Content-Security-Policy -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
                  img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
@@ -25,7 +25,6 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <!-- tiktoken URL (CORRECTED) -->
   <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init.js"; window.tiktoken = tiktoken;</script>
 
   <style>
@@ -51,7 +50,7 @@
 
 <!-- DYNAMIC UI ELEMENTS -->
 <div id="toast-container" class="fixed bottom-4 right-4 z-[100]"><div id="toast" class="bg-gray-800 dark:bg-gray-200 text-white dark:text-black py-2 px-4 rounded-lg shadow-xl"></div></div>
-<div id="unlockModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-[60]"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-sm p-6 shadow-lg"><h2 class="text-xl font-semibold mb-4 loc" data-loc="unlock_title">Unlock Chats</h2><p class="text-sm mb-3 loc" data-loc="unlock_desc">Enter your passphrase to decrypt and unlock your chats.</p><input id="unlockPassphrase" type="password" placeholder="Passphrase" class="w-full border rounded px-2 py-1.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"><button id="unlockBtn" class="w-full mt-3 bg-blue-600 text-white px-2 py-1.5 rounded focus-trap loc" data-loc="unlock_btn">Unlock</button></div></div>
+<!-- Unlock Modal Has Been Removed -->
 
 <!-- HEADER -->
 <nav class="fixed inset-x-0 top-0 flex items-center gap-2 px-2 sm:px-4 py-2 bg-blue-600 dark:bg-gray-800 text-white z-20"><button id="menuBtn" class="p-1 focus-trap"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button><button id="modelBtn" class="flex items-center px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap"><span id="currentModel" class="truncate max-w-[6rem] sm:max-w-[8rem]"></span><svg class="h-4 w-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.087l3.71-3.856a.75.75 0 011.08 1.04l-4.25 4.414a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"/></svg></button><span id="liveCost" class="text-xs opacity-80"></span><span class="flex-1"></span><button id="newChatBtnHeader" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></button><button id="settingsOpener" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-1.57 1.992A1.532 1.532 0 013.17 8.51c-1.56.38-1.56 2.6 0 2.98a1.532 1.532 0 01.948 2.286c-.836 1.372.734 2.942 1.992 1.57a1.532 1.532 0 012.286.948c.38 1.56 2.6 1.56 2.98 0a1.532 1.532 0 012.286-.948c1.372.836 2.942-.734 1.57-1.992a1.532 1.532 0 01-.948-2.286c1.56-.38 1.56-2.6 0-2.98a1.532 1.532 0 01-.948-2.286c.836-1.372-.734-2.942-1.992-1.57a1.532 1.532 0 01-2.286-.948zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg></button></nav>
@@ -78,7 +77,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
     <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="config">Configuration</h3><div><label class="text-sm font-medium loc" data-loc="api_key">API Key</label><div id="apiKeyContainer" class="relative"><input id="apiKeyInput" type="password" placeholder="sk-..." class="form-input w-full mt-1 dark:bg-gray-700 dark:border-gray-600"><button id="saveKeyBtn" class="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-2 py-0.5 rounded focus-trap loc" data-loc="save">Save</button></div><div id="apiStatus" class="hidden text-green-500 text-sm mt-1"></div></div><div><label class="text-sm font-medium">Default Temperature: <span id="tempLabel"></span></label><input id="tempInput" type="range" min="0" max="2" step="0.05" class="w-full mt-1"></div><div class="flex items-center justify-between"><label class="text-sm font-medium loc" data-loc="language">Language</label><select id="languageSelect" class="form-select dark:bg-gray-700 dark:border-gray-600 rounded-md text-sm py-1"></select></div><label class="flex items-center gap-3"><input id="themeToggle" type="checkbox" class="form-checkbox rounded"><span>Use Dark Mode</span></label></div>
     <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="audio">Audio</h3><label class="flex items-center gap-3"><input id="ttsToggle" type="checkbox" class="form-checkbox rounded"><span>Auto-play TTS on response</span></label><div><label for="ttsProvider" class="text-sm font-medium loc" data-loc="tts_provider">TTS Provider</label><select id="ttsProvider" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div><div id="openaiVoiceContainer" class="hidden"><label for="openaiVoice" class="text-sm font-medium loc" data-loc="openai_voice">OpenAI Voice</label><select id="openaiVoice" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div></div>
-    <div class="md:col-span-2 space-y-2"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="security_data">Security & Data</h3><div class="flex gap-2 flex-wrap"><button id="setEncryptionBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="set_encryption">Set Encryption Passphrase</button><button id="exportPdfBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="export_pdf">Export Thread to PDF</button><button id="importBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="import_json">Import from JSON</button></div></div>
+    <div class="md:col-span-2 space-y-2"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="security_data">Data</h3><div class="flex gap-2 flex-wrap"><!-- Set Encryption Button Has Been Removed --><button id="exportPdfBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="export_pdf">Export Thread to PDF</button><button id="importBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="import_json">Import from JSON</button></div></div>
     <div class="md:col-span-2 space-y-2">
       <h3 class="text-lg font-medium border-b pb-2 loc" data-loc="model_management">Model Management</h3>
       <p class="text-xs text-gray-500 loc" data-loc="model_management_desc">Select which models appear in the model switcher. Requires a valid API key.</p>
@@ -101,14 +100,14 @@ const VISION_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision-pre
 const TARIFF = { 'gpt-4o': [0.005, 0.015], 'gpt-4o-mini': [0.00015, 0.0006], 'gpt-4-turbo': [0.01, 0.03], 'gpt-4-vision-preview': [0.01, 0.03], 'gpt-4': [0.03, 0.06], 'gpt-4-32k': [0.06, 0.12], 'gpt-3.5-turbo': [0.0005, 0.0015] };
 const DEFAULT_RATE = [0.01, 0.03];
 const L = {
-    en: { unlock_title: "Unlock Chats", unlock_desc: "Enter your passphrase to decrypt and unlock your chats.", unlock_btn: "Unlock", switch_model: "Switch model", settings: "Settings", prompt_library: "Prompt Library", export_all: "Export All Chats", web_search_label: "Search the web", save_current_prompt: "Save Current Prompt", config: "Configuration", api_key: "API Key", save: "Save", audio: "Audio", tts_provider: "TTS Provider", openai_voice: "OpenAI Voice", security_data: "Security & Data", set_encryption: "Set Encryption Passphrase", export_pdf: "Export Thread to PDF", import_json: "Import from JSON", tos_privacy: "Terms of Service & Privacy", language: "Language", api_key_saved: "API Key saved.", change: "Change", api_key_removed: "API Key removed.", model_management: "Model Management", model_management_desc: "Select which models appear in the model switcher. Requires a valid API key." },
-    es: { unlock_title: "Desbloquear Chats", unlock_desc: "Ingrese su contraseña para descifrar y desbloquear sus chats.", unlock_btn: "Desbloquear", switch_model: "Cambiar Modelo", settings: "Ajustes", prompt_library: "Biblioteca de Prompts", export_all: "Exportar Todos los Chats", web_search_label: "Buscar en la web", save_current_prompt: "Guardar Prompt Actual", config: "Configuración", api_key: "Clave de API", save: "Guardar", audio: "Audio", tts_provider: "Proveedor de TTS", openai_voice: "Voz de OpenAI", security_data: "Seguridad y Datos", set_encryption: "Establecer Contraseña de Cifrado", export_pdf: "Exportar Hilo a PDF", import_json: "Importar desde JSON", tos_privacy: "Términos de Servicio y Privacidad", language: "Idioma", api_key_saved: "Clave de API guardada.", change: "Cambiar", api_key_removed: "Clave de API eliminada.", model_management: "Gestión de Modelos", model_management_desc: "Seleccione qué modelos aparecen en el selector de modelos. Requiere una clave de API válida." }
+    en: { switch_model: "Switch model", settings: "Settings", prompt_library: "Prompt Library", export_all: "Export All Chats", web_search_label: "Search the web", save_current_prompt: "Save Current Prompt", config: "Configuration", api_key: "API Key", save: "Save", audio: "Audio", tts_provider: "TTS Provider", openai_voice: "OpenAI Voice", security_data: "Data", export_pdf: "Export Thread to PDF", import_json: "Import from JSON", tos_privacy: "Terms of Service & Privacy", language: "Language", api_key_saved: "API Key saved.", change: "Change", api_key_removed: "API Key removed.", model_management: "Model Management", model_management_desc: "Select which models appear in the model switcher. Requires a valid API key." },
+    es: { switch_model: "Cambiar Modelo", settings: "Ajustes", prompt_library: "Biblioteca de Prompts", export_all: "Exportar Todos los Chats", web_search_label: "Buscar en la web", save_current_prompt: "Guardar Prompt Actual", config: "Configuración", api_key: "Clave de API", save: "Guardar", audio: "Audio", tts_provider: "Proveedor de TTS", openai_voice: "Voz de OpenAI", security_data: "Datos", export_pdf: "Exportar Hilo a PDF", import_json: "Importar desde JSON", tos_privacy: "Términos de Servicio y Privacidad", language: "Idioma", api_key_saved: "Clave de API guardada.", change: "Cambiar", api_key_removed: "Clave de API eliminada.", model_management: "Gestión de Modelos", model_management_desc: "Seleccione qué modelos aparecen en el selector de modelos. Requiere una clave de API válida." }
 };
 
 let state = {
     apiKey: '', theme: 'light', model: 'gpt-4o', temperature: 1.0, autoRead: false,
     threads: [], currentThread: null, modelVisibility: {}, prompts: [],
-    isEncrypted: false, encryptionKey: null, ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en'
+    ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en'
 };
 let tokenizer, currentAudioPlayer, attachedImages = [];
 
@@ -117,9 +116,7 @@ initializeApp();
 
 async function initializeApp() {
     registerServiceWorker();
-    // Load UI immediately, regardless of secondary dependencies
     await loadState();
-    // Attempt to load tokenizer in the background
     try {
         await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
         tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
@@ -131,27 +128,30 @@ function localizeUI() { document.querySelectorAll('[data-loc]').forEach(el => { 
 async function calculateTokens(text) { if (tokenizer) return tokenizer.encode(text).length; return Math.ceil((text || '').length / 4); }
 const costOf = (m, inT, outT) => { const rate = TARIFF[Object.keys(TARIFF).find(k => m.startsWith(k))] || DEFAULT_RATE; return (inT / 1000 * rate[0]) + (outT / 1000 * rate[1]); };
 let toastTimer;
-function showToast(message) { clearTimeout(toastTimer); const toast = $('toast'); toast.textContent = message; document.documentElement.style.setProperty('--toast-translate-y', '0'); toastTimer = setTimeout(() => document.documentElement.style.setProperty('--toast-translate-y', '120%'), 3000); }
+function showToast(message) { clearTimeout(toastimer); const toast = $('toast'); toast.textContent = message; document.documentElement.style.setProperty('--toast-translate-y', '0'); toastTimer = setTimeout(() => document.documentElement.style.setProperty('--toast-translate-y', '120%'), 3000); }
 
-/* ─── State, PWA, Crypto ────────────────── */
+/* ─── State, PWA ────────────────── */
 async function loadState() {
     const s = localStorage.getItem('appState');
-    if (!s) { firstRunSetup(); return; }
-    try {
-        const parsed = JSON.parse(s);
-        if (parsed.isEncrypted) { state.isEncrypted = true; $('unlockModal').classList.replace('hidden', 'flex'); localizeUI(); return; }
-        state = { ...state, ...parsed };
-        setupUI();
-    } catch (e) { state.isEncrypted = true; $('unlockModal').classList.replace('hidden', 'flex'); localizeUI(); }
+    if (s) {
+        try {
+            state = { ...state, ...JSON.parse(s) };
+            setupUI();
+        } catch (e) {
+            console.error("Could not parse saved state. It might be encrypted or corrupted. Starting fresh.", e);
+            firstRunSetup();
+        }
+    } else {
+        firstRunSetup();
+    }
 }
 function firstRunSetup() { $('tosModal').classList.replace('hidden', 'flex'); $('tosContent').innerHTML = `<h2>Welcome!</h2><p>This is a client-side application. Your API key and chats are stored in your browser's LocalStorage. By using this app, you agree to take responsibility for securing your own data and API key. No data is sent to any server except OpenAI's official API.</p><p>Please set your API key in the settings to begin.</p>`; setupUI(); }
-async function saveState() { let stateToSave = { ...state }; delete stateToSave.encryptionKey; let dataToStore = JSON.stringify(stateToSave); if (state.isEncrypted && state.encryptionKey) { dataToStore = await encrypt(dataToStore, state.encryptionKey); } localStorage.setItem('appState', dataToStore); }
+async function saveState() {
+    localStorage.setItem('appState', JSON.stringify(state));
+}
 function setupUI() { document.documentElement.lang = state.language; document.documentElement.classList.toggle('dark', state.theme === 'dark'); $('currentModel').textContent = state.model; updateAttachButtonVisibility(); if (!state.currentThread && state.threads.length > 0) state.currentThread = state.threads[0].id; renderThreads(); loadThread(); localizeUI(); }
 function updateAttachButtonVisibility() { const isVision = VISION_MODELS.some(m => state.model.startsWith(m)); $('attachBtn').classList.toggle('hidden', !isVision); }
 function registerServiceWorker() { if ('serviceWorker' in navigator) { const swJS = `const CACHE_NAME='chat-final-v1';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE_NAME).then(c=>c.add('/'))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`; navigator.serviceWorker.register(`data:text/javascript,${encodeURIComponent(swJS)}`).catch(e => console.error('SW registration failed:', e)); } }
-async function deriveKey(passphrase, salt) { const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']); return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']); }
-async function encrypt(data, key) { const iv = crypto.getRandomValues(new Uint8Array(12)), salt = crypto.getRandomValues(new Uint8Array(16)); const derivedKey = await deriveKey(key, salt); const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, derivedKey, new TextEncoder().encode(data)); const buffer = new Uint8Array(salt.length + iv.length + ciphertext.byteLength); buffer.set(salt, 0); buffer.set(iv, salt.length); buffer.set(new Uint8Array(ciphertext), salt.length + iv.length); return btoa(String.fromCharCode.apply(null, buffer)); }
-async function decrypt(encryptedData, key) { const data = atob(encryptedData), buffer = new Uint8Array(data.length); for (let i = 0; i < data.length; i++) buffer[i] = data.charCodeAt(i); const salt = buffer.slice(0, 16), iv = buffer.slice(16, 28), ciphertext = buffer.slice(28); const derivedKey = await deriveKey(key, salt); const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, derivedKey, ciphertext); return new TextDecoder().decode(decrypted); }
 
 /* ─── UI & Event Listeners ────────────────── */
 const ta = $('userInput'), sendBtn = $('sendBtn');
@@ -164,8 +164,7 @@ $('newChatBtnHeader').onclick = newThread;
 $('attachBtn').onclick = () => $('attachFileInput').click();
 $('attachFileInput').onchange = handleFileAttachment;
 sendBtn.onclick = () => sendMsg();
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modelModal', 'settingsModal', 'promptLibraryModal', 'tosModal', 'unlockModal'].forEach(id => modalAction(id, 'close')); } });
-$('unlockBtn').onclick = async () => { const phrase = $('unlockPassphrase').value; if (!phrase) return; try { const decryptedString = await decrypt(localStorage.getItem('appState'), phrase); state = { ...state, ...JSON.parse(decryptedString) }; state.encryptionKey = phrase; modalAction('unlockModal', 'close'); setupUI(); showToast('Chats unlocked!'); } catch (err) { showToast('Decryption failed. Wrong passphrase?'); console.error(err); } };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modelModal', 'settingsModal', 'promptLibraryModal', 'tosModal'].forEach(id => modalAction(id, 'close')); } });
 
 /* ─── Thread Management & Rendering ────────────────── */
 function renderThreads() { const ul = $('threadList'); ul.innerHTML = ''; state.threads.forEach(t => { const li = document.createElement('li'); li.className = `p-2 rounded flex items-center justify-between cursor-pointer ${t.id === state.currentThread ? 'bg-blue-100 dark:bg-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`; li.innerHTML = `<span class="flex-1 truncate">${t.title}</span><span class="text-xs opacity-70 mr-1">$${(t.cost || 0).toFixed(4)}</span>`; li.onclick = () => { if (state.currentThread === t.id) return; state.currentThread = t.id; saveState(); renderThreads(); loadThread(); $('sidebar').classList.remove('open'); }; ul.appendChild(li); }); }
@@ -358,7 +357,6 @@ function setupDataButtons() {
     $('exportPdfBtn').onclick = async () => { const th = state.threads.find(x => x.id === state.currentThread); if (!th) return showToast('No thread selected.'); showToast('Generating PDF...'); const chatEl = $('chat'); const canvas = await html2canvas(chatEl, { scale: 2, logging: false, useCORS: true, backgroundColor: state.theme === 'dark' ? '#111827' : '#ffffff' }); const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const pdfWidth = pdf.internal.pageSize.getWidth(); const pdfHeight = pdf.internal.pageSize.getHeight(); const canvasWidth = canvas.width; const canvasHeight = canvas.height; const ratio = canvasWidth / pdfWidth; const imgHeight = canvasHeight / ratio; let heightLeft = imgHeight; let position = 0; pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdfHeight; while (heightLeft > 0) { position = -heightLeft; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdfHeight; } pdf.save(`${th.title.replace(/ /g, '_')}.pdf`); };
     $('importBtn').onclick = () => $('importFileInput').click();
     $('importFileInput').onchange = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { try { const imported = JSON.parse(re.target.result); if(imported.threads) state = {...state, ...imported}; else if (Array.isArray(imported)) state.threads = imported; else throw new Error("Invalid format"); state.currentThread = state.threads[0]?.id || null; saveState(); renderThreads(); loadThread(); showToast('Import successful!'); } catch(err){ showToast('Import failed: ' + err.message); } }; reader.readAsText(file); } };
-    $('setEncryptionBtn').onclick = () => { const phrase = prompt('Enter a passphrase to encrypt your chats. LEAVE BLANK to disable encryption.'); if (phrase === null) return; state.isEncrypted = !!phrase; state.encryptionKey = phrase; saveState(); showToast(phrase ? 'Encryption enabled!' : 'Encryption disabled.'); };
     $('exportAllBtn').onclick = () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const a = document.createElement('a'); a.href = dataStr; a.download = `chat_export_${Date.now()}.json`; a.click(); showToast('All application data exported.'); };
 }
 function renderPrompts() { const listDiv = $('promptList'); listDiv.innerHTML = ''; (state.prompts || []).forEach((p, i) => { const div = document.createElement('div'); div.className = 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center'; div.innerHTML = `<span>${p.name}</span><div class="flex gap-1"><button class="use-prompt bg-blue-500 text-white text-xs px-2 py-1 rounded">Use</button><button class="del-prompt bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button></div>`; div.querySelector('.use-prompt').onclick = () => { ta.value = p.text; modalAction('promptLibraryModal', 'close'); updateSendButton(); }; div.querySelector('.del-prompt').onclick = () => { state.prompts.splice(i, 1); saveState(); renderPrompts(); }; listDiv.appendChild(div); }); }
