@@ -1,4 +1,4 @@
-<!-- FILE: chat_client_final_stable.html -->
+<!-- FILE: chat_client_final_v5_stable.html -->
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth h-full">
 <head>
@@ -44,7 +44,10 @@
   </style>
 </head>
 
-  <body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
+-----
+
+
+<body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
 
 <!-- DYNAMIC UI ELEMENTS -->
 <div id="toast-container" class="fixed bottom-4 right-4 z-[100]"><div id="toast" class="bg-gray-800 dark:bg-gray-200 text-white dark:text-black py-2 px-4 rounded-lg shadow-xl"></div></div>
@@ -81,7 +84,9 @@
 </template>
 
 
-   <script type="module">
+----
+
+<script type="module">
 // Initialize Libraries
 const { jsPDF } = window.jspdf;
 const { html2canvas } = window;
@@ -176,6 +181,7 @@ function renderImagePreviews() { const container = $('imagePreviews'); container
 
 
 
+------
 
 /* ─── API & Audio ────────────────── */
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) { try { const res = await fetch(url, options); if (!res.ok && (res.status === 429 || res.status >= 500) && retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } return res; } catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } throw err; } }
@@ -187,26 +193,41 @@ async function sendMsg(contentOverride = null, isRegen = false) {
     $('spinner').classList.remove('hidden'); $('sendIcon').classList.add('hidden'); sendBtn.disabled = true;
     const th = state.threads.find(x => x.id === state.currentThread);
     
-    if ($('webSearchToggle').checked) { addMsg({role: 'system', content: '<div class="loader"></div> Searching the web...'}, th.messages.length); }
+    // Add a system message for web search indication, if enabled
+    if ($('webSearchToggle').checked && !isRegen) {
+        addMsg({role: 'system', content: '<div class="loader"></div> Searching the web...'}, th.messages.length);
+    }
     
     let userMessageContent = [];
     if (textContent) userMessageContent.push({ type: 'text', text: textContent });
     attachedImages.forEach(img => userMessageContent.push({ type: "image_url", image_url: { url: img.data } }));
-    if (userMessageContent.length === 1 && userMessageContent[0].type === 'text') userMessageContent = userMessageContent[0].text;
+    if (userMessageContent.length === 1 && userMessageContent[0].type === 'text') {
+        userMessageContent = userMessageContent[0].text;
+    }
 
-    if (!isRegen) { th.messages.push({ role: 'user', content: userMessageContent }); addMsg(th.messages[th.messages.length - 1], th.messages.length - 1); }
-    if (th.title === 'New Chat') th.title = typeof userMessageContent === 'string' ? userMessageContent.slice(0, 30) : userMessageContent.find(p=>p.type==='text')?.text.slice(0,30) || 'Image Query';
+    if (!isRegen) {
+        th.messages.push({ role: 'user', content: userMessageContent });
+        addMsg(th.messages[th.messages.length - 1], th.messages.length - 1);
+    }
+    if (th.title === 'New Chat') {
+        th.title = typeof userMessageContent === 'string' ? userMessageContent.slice(0, 30) : (userMessageContent.find(p => p.type === 'text')?.text.slice(0, 30) || 'Image Query');
+    }
     ta.value = ''; attachedImages = []; renderImagePreviews(); updateSendButton(); ta.dispatchEvent(new Event('input'));
   
     const requestBody = { model: state.model, messages: th.messages, temperature: state.temperature, stream: true };
-    if ($('webSearchToggle').checked) { requestBody.tools = [{ type: 'web_search' }]; }
+    if ($('webSearchToggle').checked) {
+        requestBody.tools = [{ type: 'web_search' }];
+        $('webSearchToggle').checked = false; // Reset after use
+    }
     
     const inT = await calculateTokens(JSON.stringify(requestBody));
-    let acc = '', outT = 0;
+    let acc = '', outT = 0, toolCallAcc = '';
     
-    addMsg({role: 'assistant', content: '...'}, th.messages.length);
-    let assistantMessageIndex = th.messages.length;
-    let currentMessageDiv = $(`msg-${assistantMessageIndex}`);
+    // Create a single div for the assistant response that will be updated
+    const assistantMsgIndex = th.messages.length;
+    addMsg({role: 'assistant', content: '...'}, assistantMsgIndex);
+    const currentMessageDiv = $(`msg-${assistantMsgIndex}`);
+    const contentDiv = currentMessageDiv.querySelector('.prose');
 
     try {
         const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify(requestBody) });
@@ -215,16 +236,32 @@ async function sendMsg(contentOverride = null, isRegen = false) {
             throw new Error(`API Error: ${res.status} ${errorText}`);
         }
     
-        const contentDiv = currentMessageDiv.querySelector('.prose');
         const rd = res.body.getReader(), dec = new TextDecoder();
         while (true) {
-            const { value, done } = await rd.read(); if (done) break;
-            dec.decode(value).split('\n\n').filter(l => l.startsWith('data: ')).forEach(l => {
-                const d = l.substring(6); if (d.trim() === '[DONE]') return;
-                const parsed = JSON.parse(d);
-                if(parsed.choices[0].delta.content) { acc += parsed.choices[0].delta.content; contentDiv.innerHTML = md(acc); }
-                if(parsed.choices[0].delta.tool_calls) { const toolCall = parsed.choices[0].delta.tool_calls[0]; if(toolCall.function.name === 'web_search') addMsg({role: 'system', content: 'Web search complete. Formulating answer...'}, -1); }
-            });
+            const { value, done } = await rd.read();
+            if (done) break;
+            const chunk = dec.decode(value);
+            const lines = chunk.split('\n\n');
+            for(const line of lines){
+                if (line.startsWith('data: ')) {
+                    const data = line.substring(6);
+                    if (data.trim() === '[DONE]') break;
+                    const parsed = JSON.parse(data);
+                    const delta = parsed.choices[0].delta;
+                    if (delta.content) {
+                        acc += delta.content;
+                        contentDiv.innerHTML = md(acc);
+                    }
+                    if (delta.tool_calls) {
+                        // This part handles the visual feedback that a tool is being used
+                        const toolCall = delta.tool_calls[0];
+                        if (toolCall.function.name) { // First part of tool call
+                            const systemMsg = document.querySelector('#chat .text-center');
+                            if (systemMsg) systemMsg.innerHTML = `<div class="loader"></div> Executing search...`;
+                        }
+                    }
+                }
+            }
         }
     
         outT = await calculateTokens(acc);
@@ -232,14 +269,28 @@ async function sendMsg(contentOverride = null, isRegen = false) {
         th.cost = (th.cost || 0) + cost;
 
         const newAssistantMsg = { role: 'assistant', content: acc, cost };
-        th.messages[assistantMessageIndex] = newAssistantMsg; // Replace placeholder
-        currentMessageDiv.remove();
-        addMsg(newAssistantMsg, assistantMessageIndex);
+        th.messages[assistantMsgIndex] = newAssistantMsg; // Finalize the message in the state
         
-        if (state.autoRead && !isRegen) toggleTTS(newAssistantMsg.content, document.querySelector(`#msg-${assistantMessageIndex} .speak-btn`));
+        // Refresh the single message div with the final content and actions
+        currentMessageDiv.parentElement.remove();
+        addMsg(newAssistantMsg, assistantMsgIndex);
 
-    } catch (err) { console.error(err); if (currentMessageDiv) currentMessageDiv.remove(); addMsg({role: 'assistant', content: `⚠️ Error: ${err.message}`}, -1);
-    } finally { saveState(); renderThreads(); updateCostUI(0, th.cost); $('spinner').classList.add('hidden'); $('sendIcon').classList.remove('hidden'); updateSendButton(); }
+        if (state.autoRead && !isRegen) {
+            toggleTTS(newAssistantMsg.content, document.querySelector(`#msg-${assistantMsgIndex} .speak-btn`));
+        }
+
+    } catch (err) {
+        console.error(err);
+        if (currentMessageDiv) currentMessageDiv.parentElement.remove(); // Remove the placeholder on error
+        addMsg({role: 'assistant', content: `⚠️ Error: ${err.message}`}, -1);
+    } finally {
+        saveState();
+        renderThreads();
+        updateCostUI(0, th.cost);
+        $('spinner').classList.add('hidden');
+        $('sendIcon').classList.remove('hidden');
+        updateSendButton();
+    }
 }
 async function toggleTTS(text, btn) {
     if (currentAudioPlayer && !currentAudioPlayer.paused) { currentAudioPlayer.pause(); return; }
@@ -249,8 +300,13 @@ async function toggleTTS(text, btn) {
 
     const resetUI = () => { currentAudioPlayer = null; btn.innerHTML = playIcon; };
 
-    if (state.ttsProvider === 'browser') { if (speechSynthesis.speaking) speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.onstart = () => btn.innerHTML = stopIcon; u.onend = resetUI; speechSynthesis.speak(u); }
-    else {
+    if (state.ttsProvider === 'browser') {
+        if (speechSynthesis.speaking) speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.onstart = () => btn.innerHTML = stopIcon;
+        u.onend = resetUI;
+        speechSynthesis.speak(u);
+    } else {
         try {
             const res = await fetchWithRetry('https://api.openai.com/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify({ model: 'tts-1', input: text, voice: state.openaiVoice }) });
             if (!res.ok) throw new Error('TTS API request failed');
@@ -298,9 +354,9 @@ function renderSettings() {
 function keyUI(has) { if (!$('apiStatus')) return; const status = $('apiStatus'); status.innerHTML = has ? loc('api_key_saved') + ` <button id="resetKeyBtn" class="ml-2 text-red-500 underline focus-trap">${loc('change')}</button>` : ''; status.classList.toggle('hidden', !has); $('apiKeyContainer').style.display = has ? 'none' : 'block'; if (has) $('resetKeyBtn').onclick = () => { state.apiKey = ''; saveState(); keyUI(false); $('apiKeyInput').value = ''; showToast(loc('api_key_removed')); }; }
 async function populateModelVisibilityList() { const listDiv = $('modelVisibilityList'); if (!listDiv) return; listDiv.innerHTML = `<div class="flex items-center gap-2 text-gray-400"><div class="loader"></div><span>Fetching models...</span></div>`; if (!state.apiKey) { listDiv.innerHTML = 'Enter API key.'; return; } try { const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + state.apiKey }}); if (!r.ok) throw new Error('Failed to fetch'); const models = (await r.json()).data.map(m => m.id).filter(id => /^gpt-/.test(id) && !id.includes('instruct')).sort(); listDiv.innerHTML = ''; models.forEach(id => { const label = document.createElement('label'); label.className = 'flex items-center gap-3 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600'; const isVisible = state.modelVisibility[id] !== false; label.innerHTML = `<input type="checkbox" class="model-visibility-toggle form-checkbox rounded" data-model-id="${id}" ${isVisible ? 'checked' : ''}><span>${id}</span>`; listDiv.appendChild(label); }); listDiv.querySelectorAll('.model-visibility-toggle').forEach(toggle => { toggle.onchange = e => { state.modelVisibility[e.target.dataset.modelId] = e.target.checked; saveState(); }; }); } catch (e) { listDiv.innerHTML = '<span class="text-red-500">Could not fetch models.</span>'; console.error(e); } }
 function setupDataButtons() {
-    $('exportPdfBtn').onclick = async () => { const th = state.threads.find(x => x.id === state.currentThread); if (!th) return showToast('No thread selected.'); showToast('Generating PDF...'); const chatEl = $('chat'); const canvas = await html2canvas(chatEl, { scale: 2, logging: false, useCORS: true, backgroundColor: state.theme === 'dark' ? '#111827' : '#ffffff' }); const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const pdfWidth = pdf.internal.pageSize.getWidth(); const canvasWidth = canvas.width; const ratio = canvasWidth / pdfWidth; const imgHeight = canvas.height / ratio; let heightLeft = imgHeight; let position = 0; pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdf.internal.pageSize.getHeight(); while (heightLeft > 0) { position = -heightLeft; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdf.internal.pageSize.getHeight(); } pdf.save(`${th.title.replace(/ /g, '_')}.pdf`); };
+    $('exportPdfBtn').onclick = async () => { const th = state.threads.find(x => x.id === state.currentThread); if (!th) return showToast('No thread selected.'); showToast('Generating PDF...'); const chatEl = $('chat'); const canvas = await html2canvas(chatEl, { scale: 2, logging: false, useCORS: true, backgroundColor: state.theme === 'dark' ? '#111827' : '#ffffff' }); const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const pdfWidth = pdf.internal.pageSize.getWidth(); const pdfHeight = pdf.internal.pageSize.getHeight(); const canvasWidth = canvas.width; const canvasHeight = canvas.height; const ratio = canvasWidth / pdfWidth; const imgHeight = canvasHeight / ratio; let heightLeft = imgHeight; let position = 0; pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdfHeight; while (heightLeft > 0) { position = -heightLeft; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdfHeight; } pdf.save(`${th.title.replace(/ /g, '_')}.pdf`); };
     $('importBtn').onclick = () => $('importFileInput').click();
-    $('importFileInput').onchange = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { try { const imported = JSON.parse(re.target.result); if(Array.isArray(imported)) state.threads = imported; else if(imported.threads) state = {...state, ...imported}; else throw new Error("Invalid format"); state.currentThread = state.threads[0]?.id || null; saveState(); renderThreads(); loadThread(); showToast('Import successful!'); } catch(err){ showToast('Import failed: ' + err.message); } }; reader.readAsText(file); } };
+    $('importFileInput').onchange = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { try { const imported = JSON.parse(re.target.result); if(imported.threads) state = {...state, ...imported}; else if (Array.isArray(imported)) state.threads = imported; else throw new Error("Invalid format"); state.currentThread = state.threads[0]?.id || null; saveState(); renderThreads(); loadThread(); showToast('Import successful!'); } catch(err){ showToast('Import failed: ' + err.message); } }; reader.readAsText(file); } };
     $('setEncryptionBtn').onclick = () => { const phrase = prompt('Enter a passphrase to encrypt your chats. LEAVE BLANK to disable encryption.'); if (phrase === null) return; state.isEncrypted = !!phrase; state.encryptionKey = phrase; saveState(); showToast(phrase ? 'Encryption enabled!' : 'Encryption disabled.'); };
     $('exportAllBtn').onclick = () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const a = document.createElement('a'); a.href = dataStr; a.download = `chat_export_${Date.now()}.json`; a.click(); showToast('All application data exported.'); };
 }
@@ -310,5 +366,4 @@ $('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(
 });
 </script>
 </body>
-</html>
-                          
+</html>  
