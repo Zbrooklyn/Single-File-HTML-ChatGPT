@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ChatGPT Polished Client</title>
   <meta name="description" content="A feature-complete, privacy-first, single-file client for OpenAI models.">
-  <!-- FIX: Switched to single quotes to fix manifest syntax error -->
   <link rel="manifest" href='data:application/manifest+json,{"name":"ChatGPT Polished","short_name":"Chat","start_url":".","display":"standalone","background_color":"#111827","theme_color":"#2563eb","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}'>
 
   <!-- Content-Security-Policy -->
@@ -125,12 +124,11 @@ async function loadState() {
         try {
             state = { ...state, ...JSON.parse(s) };
         } catch (e) {
-            console.error("Could not parse saved state. It might be encrypted or corrupted. Starting fresh.", e);
+            console.error("Could not parse saved state. Starting fresh.", e);
         }
     }
     setupUI();
 }
-function firstRunSetup() { $('tosModal').classList.replace('hidden', 'flex'); $('tosContent').innerHTML = `<h2>Welcome!</h2><p>This is a client-side application. Your API key and chats are stored in your browser's LocalStorage. By using this app, you agree to take responsibility for securing your own data and API key. No data is sent to any server except OpenAI's official API.</p><p>Please set your API key in the settings to begin.</p>`; setupUI(); }
 async function saveState() {
     localStorage.setItem('appState', JSON.stringify(state));
 }
@@ -139,7 +137,6 @@ function updateAttachButtonVisibility() { const isVision = VISION_MODELS.some(m 
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         const swJS = `const CACHE_NAME='chat-final-v1';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE_NAME).then(c=>c.add('/'))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
-        // FIX: Use a Blob to create the Service Worker URL to avoid 'data:' protocol errors
         const swBlob = new Blob([swJS], { type: 'text/javascript' });
         navigator.serviceWorker.register(URL.createObjectURL(swBlob))
           .catch(e => console.error('SW registration failed:', e));
@@ -152,6 +149,7 @@ const updateSendButton = () => { sendBtn.disabled = ta.value.trim().length === 0
 ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 256) + 'px'; updateSendButton(); });
 const modalAction = (modalId, action) => $(modalId).classList.replace(action === 'open' ? 'hidden' : 'flex', action === 'open' ? 'flex' : 'hidden');
 $('menuBtn').onclick = () => $('sidebar').classList.add('open');
+// FIX: Restored the correct logic to close the sidebar
 $('closeSidebar').onclick = () => $('sidebar').classList.remove('open');
 $('newChatBtnHeader').onclick = newThread;
 $('attachBtn').onclick = () => $('attachFileInput').click();
@@ -358,14 +356,12 @@ $('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(
 async function initializeApp() {
     registerServiceWorker();
     await loadState();
-    // FIX: Restore correct tiktoken initialization to find the .wasm file
     try {
         await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
         tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
     } catch (e) { console.error("Tokenizer failed to load. Using approximation.", e); }
 }
 
-// FIX: Move the function call to the end of the script to prevent ReferenceErrors
 initializeApp();
 
 </script>
