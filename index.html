@@ -23,7 +23,7 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init.js"; window.tiktoken = tiktoken;</script>
+  <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/init.js"; window.tiktoken = tiktoken;</script>
 
   <style>
     :root { --toast-translate-y: 120%; }
@@ -109,9 +109,20 @@ const L = {
 };
 
 let state = {
-    apiKey: '', theme: 'light', model: 'gpt-4o', temperature: 1.0, autoRead: false,
-    threads: [], currentThread: null, modelVisibility: {}, prompts: [],
-    isEncrypted: false, encryptionKey: null, ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en'
+    apiKey: '',
+    theme: 'light',
+    model: 'gpt-4o',
+    temperature: 1.0,
+    autoRead: false,
+    threads: [],
+    currentThread: null,
+    modelVisibility: {},
+    prompts: [],
+    isEncrypted: false,
+    encryptionKey: null,
+    ttsProvider: 'browser',
+    openaiVoice: 'alloy',
+    language: 'en'
 };
 let tokenizer, currentAudioPlayer, attachedImages = [];
 
@@ -124,7 +135,7 @@ async function initializeApp() {
     await loadState();
     // Attempt to load tokenizer in the background
     try {
-        await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
+        await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/tiktoken_bg.wasm", import.meta.url), imports));
         tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
     } catch (e) { console.error("Tokenizer failed to load. Using approximation.", e); }
 }
