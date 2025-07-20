@@ -1,4 +1,3 @@
-<!-- FILE: chat_client_final_v7_complete_blueprint.html -->
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth h-full">
 <head>
@@ -6,21 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ChatGPT Polished Client</title>
   <meta name="description" content="A feature-complete, privacy-first, single-file client for OpenAI models.">
-  <link rel="manifest" href='data:application/manifest+json,{"name":"ChatGPT Polished","short_name":"Chat","start_url":".","display":"standalone","background_color":"#111827","theme_color":"#2563eb","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}'>
+  <link rel="manifest" href='data:application/manifest+json,{"name":"ChatGPT Polished","short_name":"Chat","start_url":".","display":"standalone","background_color":"#030712","theme_color":"#2563eb","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}'>
 
-  <!-- Content-Security-Policy -->
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' https://*.tailwindcss.com https://*.jsdelivr.net https://api.openai.com;
-                 img-src 'self' data: blob: https://oaidalleapiprodscus.blob.core.windows.net;
-                 style-src 'self' 'unsafe-inline' https://*.tailwindcss.com;
-                 script-src 'self' 'unsafe-inline' https://*.jsdelivr.net https://cdn.tailwindcss.com https://cdnjs.cloudflare.com blob:;
-                 worker-src 'self' blob:;
-                 media-src 'self' blob:;
-                 manifest-src data:;">
-
-  <!-- Libs: Tailwind, marked, DOMPurify, tiktoken, jsPDF, html2canvas -->
+  <!-- Libs -->
   <script src="https://cdn.tailwindcss.com?plugins=typography,forms"></script>
-  <script>tailwind.config = { darkMode: 'class' };</script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: {} } };
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -28,340 +19,837 @@
   <script type="module">import * as tiktoken from "https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/init.js"; window.tiktoken = tiktoken;</script>
 
   <style>
-    :root { --toast-translate-y: 120%; }
+    /* Base & Scrollbar */
     html { scroll-behavior: smooth; }
-    .sidebar { transform: translateX(-100%); transition: transform .3s ease; }
+    .sidebar { transform: translateX(-100%); transition: transform .3s ease-in-out; }
     .sidebar.open { transform: translateX(0); }
+    #chatView { scroll-behavior: smooth; }
     textarea { overflow-y: auto; resize: none; }
-    .modal-bg { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
-    .focus-trap:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-    #toast { transform: translateY(var(--toast-translate-y)); transition: transform .3s ease; }
+    #modelList::-webkit-scrollbar, #logsContent::-webkit-scrollbar, #tagSliderContainer::-webkit-scrollbar, #threadList::-webkit-scrollbar { display: none; }
+    #modelList, #logsContent, #tagSliderContainer, #threadList { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* Actions Popup */
+    #actionsPopup { opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+    #actionsPopup.open { opacity: 1; visibility: visible; }
+    #actionsPanel { transform: translateY(100%); transition: transform 0.3s ease-out; }
+    #actionsPopup.open #actionsPanel { transform: translateY(0); }
+
+    /* Global Focus Ring Style */
+    .focus-ring { @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-offset-gray-900; }
+    
+    /* Prose Overrides for Markdown Content */
     .prose table { width: 100%; border-collapse: collapse; }
-    .prose th, .prose td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; }
-    .prose th { background-color: #f3f4f6; font-weight: 600; }
-    .dark .prose th { background-color: #374151; }
-    .dark .prose th, .dark .prose td { border-color: #4b5563; }
-    .loader { border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; width: 12px; height: 12px; animation: spin 1s linear infinite; }
+    .prose th, .prose td { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; }
+    .prose th { background-color: #f9fafb; font-weight: 600; }
+    .dark .prose th { background-color: #1f2937; }
+    .dark .prose th, .dark .prose td { border-color: #374151; }
+    
+    /* Animation & Loader */
+    .loader { border: 2px solid #e5e7eb; border-top: 2px solid #2563eb; border-radius: 50%; width: 12px; height: 12px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    /* Microphone Recording Animation */
+    .mic-recording svg { color: #ef4444; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } }
   </style>
 </head>
 
-<body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-white overflow-x-hidden">
+<body class="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 overflow-x-hidden">
 
-<!-- DYNAMIC UI ELEMENTS -->
-<div id="toast-container" class="fixed bottom-4 right-4 z-[100]"><div id="toast" class="bg-gray-800 dark:bg-gray-200 text-white dark:text-black py-2 px-4 rounded-lg shadow-xl"></div></div>
-
-<!-- HEADER -->
-<nav class="fixed inset-x-0 top-0 flex items-center gap-2 px-2 sm:px-4 py-2 bg-blue-600 dark:bg-gray-800 text-white z-20"><button id="menuBtn" class="p-1 focus-trap"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button><button id="modelBtn" class="flex items-center px-2 py-1 bg-white text-gray-800 dark:bg-gray-700 rounded focus-trap"><span id="currentModel" class="truncate max-w-[6rem] sm:max-w-[8rem]"></span><svg class="h-4 w-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.087l3.71-3.856a.75.75 0 011.08 1.04l-4.25 4.414a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"/></svg></button><span id="liveCost" class="text-xs opacity-80"></span><span class="flex-1"></span><button id="newChatBtnHeader" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></button><button id="settingsOpener" class="p-2 bg-white text-gray-800 dark:bg-gray-700 rounded-full focus-trap"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-1.57 1.992A1.532 1.532 0 013.17 8.51c-1.56.38-1.56 2.6 0 2.98a1.532 1.532 0 01.948 2.286c-.836 1.372.734 2.942 1.992 1.57a1.532 1.532 0 012.286.948c.38 1.56 2.6 1.56 2.98 0a1.532 1.532 0 012.286-.948c1.372.836 2.942-.734 1.57-1.992a1.532 1.532 0 01-.948-2.286c1.56-.38 1.56-2.6 0-2.98a1.532 1.532 0 01-.948-2.286c.836-1.372-.734-2.942-1.992-1.57a1.532 1.532 0 01-2.286-.948zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg></button></nav>
-
-<!-- SIDEBAR -->
-<aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-full sm:w-72 bg-white dark:bg-gray-800 shadow-lg p-4 pt-20 z-10 overflow-y-auto"><button id="closeSidebar" class="absolute top-4 right-4 text-gray-700 dark:text-white focus-trap">✖</button><ul id="threadList" class="space-y-1"></ul><div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"><button id="promptLibraryOpener" class="w-full text-left p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus-trap loc" data-loc="prompt_library">Prompt Library</button><button id="exportAllBtn" class="w-full text-left p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus-trap loc" data-loc="export_all">Export All Chats</button></div></aside>
-
-<!-- MAIN CONTENT AREA -->
-<main class="flex-1 flex flex-col pt-16 pb-20">
-    <section id="chatView" role="log" class="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4"></section>
-    <section id="settingsPage" class="hidden p-4 sm:p-6 max-w-4xl mx-auto w-full">
-        <div class="flex items-center mb-6">
-            <button id="backToChatBtn" class="mr-4 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-            </button>
-            <h2 class="text-2xl font-semibold loc" data-loc="full_settings">Full Settings</h2>
+<!-- UI -->
+<nav class="fixed inset-x-0 top-0 flex items-center gap-2 px-2 sm:px-4 py-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 z-20"><button id="menuBtn" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring" title="Open Menu"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg></button><button id="modelBtn" class="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors focus-ring"><span id="currentModel" class="truncate max-w-[6rem] sm:max-w-[8rem] font-semibold text-sm"></span><svg class="h-4 w-4 ml-1.5 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.087l3.71-3.856a.75.75 0 011.08 1.04l-4.25 4.414a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></button><span id="liveCost" class="text-xs opacity-70"></span><span class="flex-1"></span><button id="newChatBtnHeader" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring" title="New Chat"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15"/></svg></button><button id="settingsOpener" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring" title="Settings"><svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-1.57 1.992A1.532 1.532 0 013.17 8.51c-1.56.38-1.56 2.6 0 2.98a1.532 1.532 0 01.948 2.286c-.836 1.372.734 2.942 1.992 1.57a1.532 1.532 0 012.286.948c.38 1.56 2.6 1.56 2.98 0a1.532 1.532 0 012.286-.948c1.372.836 2.942-.734 1.57-1.992a1.532 1.532 0 01-.948-2.286c1.56-.38 1.56-2.6 0-2.98a1.532 1.532 0 01-.948-2.286c.836-1.372-.734-2.942-1.992-1.57a1.532 1.532 0 01-2.286-.948zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg></button></nav>
+<div id="notificationBanner" class="hidden fixed top-16 inset-x-0 z-50 p-3 text-white text-sm text-center">
+    <span id="notificationMessage"></span>
+    <button id="closeNotification" class="absolute top-1/2 right-4 -translate-y-1/2 font-bold">✖</button>
+</div>
+<aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-full sm:w-72 bg-gray-50 dark:bg-gray-800 shadow-lg p-4 z-40 flex flex-col border-r border-gray-200 dark:border-gray-700">
+    <div class="flex items-center gap-2 pt-12 mb-2">
+        <div class="relative flex-grow">
+            <input type="search" id="chatSearch" placeholder="Search chats or tag:work..." class="w-full bg-gray-200 dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-lg shadow-sm pl-9 text-sm py-1.5 focus:border-blue-500 focus:ring-blue-500 focus-ring">
+            <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
         </div>
-        <div id="fullSettingsContent" class="space-y-6"></div>
-    </section>
+        <button id="closeSidebar" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring">✖</button>
+    </div>
+    <div id="tagSliderContainer" class="flex-shrink-0 mb-2 overflow-x-auto"><div id="tagSlider" class="flex gap-2 pb-1"></div></div>
+    <ul id="threadList" class="space-y-1 flex-1 overflow-y-auto pr-1"></ul>
+    <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-center text-xs text-gray-500 dark:text-gray-400">
+        <button id="manageTagsBtnSidebar" class="hover:underline focus-ring rounded">Manage Labels</button>
+        <span class="mx-2">•</span>
+        <button id="promptLibraryOpener" class="hover:underline focus-ring rounded loc" data-loc="prompt_library">Prompt Library</button>
+        <span class="mx-2">•</span>
+        <button id="exportAllBtn" class="hover:underline focus-ring rounded">Export Chats</button>
+    </div>
+</aside>
+
+<!-- Views -->
+<main class="flex-1 flex flex-col pt-16 pb-20">
+    <section id="chatView" role="log" class="flex-1 overflow-y-auto p-2 sm:p-4 pb-4 space-y-4"></section>
+    <section id="settingsPage" class="hidden p-4 sm:p-6 max-w-4xl mx-auto w-full"><div class="flex items-center mb-6"><button id="backToChatBtn" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring mr-2"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg></button><h2 class="text-2xl font-semibold loc" data-loc="full_settings">Full Settings</h2></div><div id="fullSettingsContent" class="space-y-6"></div></section>
+    <section id="advancedSettingsPage" class="hidden p-4 sm:p-6 max-w-4xl mx-auto w-full"><div class="flex items-center mb-6"><button id="backToSettingsBtn" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring mr-2"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg></button><h2 class="text-2xl font-semibold">Advanced Settings</h2></div><div id="advancedSettingsContent" class="space-y-6"></div></section>
+    <section id="manageTagsPage" class="hidden p-4 sm:p-6 max-w-4xl mx-auto w-full"><div class="flex items-center mb-6"><button id="backToChatFromTagsBtn" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring mr-2"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg></button><h2 class="text-2xl font-semibold">Manage Labels</h2></div><div id="manageTagsContent" class="space-y-6"></div></section>
+    <section id="logsPage" class="hidden p-4 sm:p-6 max-w-4xl mx-auto w-full"><div class="flex items-center mb-6"><button id="backToChatFromLogsBtn" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring mr-2"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg></button><h2 class="text-2xl font-semibold">Logs & Errors</h2></div><div id="logsContent" class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg font-mono text-xs space-y-2 overflow-y-auto max-h-[65vh]"></div></section>
 </main>
-
-<!-- INPUT BAR -->
-<div id="inputBar" class="fixed bottom-0 inset-x-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-2 sm:p-4"><div class="max-w-4xl mx-auto"><div id="imagePreviews" class="flex gap-2 mb-2"></div><label class="flex items-center gap-2 text-xs mb-1 text-gray-500" id="webSearchContainer"><input type="checkbox" id="webSearchToggle" class="form-checkbox h-4 w-4 text-blue-600 rounded"><span class="loc" data-loc="web_search_label">Search the web</span></label><div class="flex gap-2 items-end"><button id="attachBtn" class="p-2.5 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus-trap hidden" title="Attach Image"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg></button><textarea id="userInput" rows="1" placeholder="Type a message…" class="flex-1 border rounded-lg px-3 py-2.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"></textarea><button id="sendBtn" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center focus-trap" disabled><svg id="sendIcon" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg><svg id="spinner" class="h-5 w-5 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V8z"/></svg></button></div></div></div>
-
-<!-- MODALS -->
-<div id="modelModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-30" role="dialog">
-    <div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-2xl p-4 relative shadow-lg max-h-[85vh] flex flex-col">
-        <button id="closeModelModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button>
-        <h2 class="text-xl font-semibold text-center mb-1 flex-shrink-0 loc" data-loc="switch_model">Switch Model</h2>
-        <p class="text-center text-xs text-gray-500 mb-3">Select the AI brain your chat will use.</p>
-        <div id="modelList" class="flex-1 overflow-y-auto space-y-2 p-1"></div>
+<div id="inputBar" class="fixed bottom-0 inset-x-0 bg-white dark:bg-gray-900/80 backdrop-blur-md p-2 sm:p-4 border-t border-gray-200 dark:border-gray-800">
+    <div class="max-w-4xl mx-auto">
+        <div id="imagePreviews" class="flex gap-2 mb-2"></div>
+        <div id="activeModeIndicator" class="hidden items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-1 rounded-full mb-2 w-fit">
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" /></svg>
+            <span id="activeModeText">Web Search Active</span>
+            <button id="cancelModeBtn" class="font-bold text-lg leading-none">×</button>
+        </div>
+        <div class="flex items-end gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-2">
+            <button id="attachBtn" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring" title="Attach...">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            </button>
+            <textarea id="userInput" rows="1" placeholder="Message" class="flex-1 bg-transparent border-none focus:ring-0 resize-none px-2 py-1.5 text-gray-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"></textarea>
+            <button id="micBtn" class="flex-shrink-0 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring" title="Use Microphone">
+                <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11h-1c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92z"/></svg>
+            </button>
+            <button id="sendBtn" class="flex-shrink-0 p-2 bg-blue-600 text-white rounded-full focus-ring hidden hover:bg-blue-700 transition-colors" title="Send Message">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+            </button>
+            <div id="loadingSpinner" class="p-2 hidden flex-shrink-0">
+                <div class="h-6 w-6 border-2 border-gray-400 border-t-white rounded-full animate-spin"></div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div id="modelSettingsModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-40" role="dialog">
-    <div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-lg p-6 relative shadow-lg max-h-[80vh] flex flex-col">
-        <button id="closeModelSettingsModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button>
-        <h2 class="text-xl font-semibold mb-4">Manage Available Models</h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select which models you want to appear in the main "Switch Model" dropdown. Changes are saved automatically.</p>
-        <div id="modelSettingsList" class="flex-1 overflow-y-auto space-y-3 pr-2"></div>
+<!-- Modals -->
+<div id="modelModal" class="fixed inset-0 hidden items-center justify-center z-50 bg-gray-900/60 backdrop-blur-sm" role="dialog"> <div class="bg-white dark:bg-gray-800 rounded-xl w-11/12 max-w-2xl p-4 shadow-2xl max-h-[85vh] flex flex-col"> <button id="closeModelModal" class="absolute top-2 right-2 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring">✖</button> <h2 class="text-xl font-semibold text-center mb-1 flex-shrink-0 loc" data-loc="switch_model">Switch Model</h2> <p class="text-center text-xs text-gray-500 dark:text-gray-400 mb-3">Select the AI brain your chat will use.</p> <div id="modelList" class="flex-1 overflow-y-auto space-y-1 pr-2"></div> </div> </div>
+<div id="modelSettingsModal" class="fixed inset-0 hidden items-center justify-center z-50 bg-gray-900/60 backdrop-blur-sm" role="dialog"> <div class="bg-white dark:bg-gray-800 rounded-xl w-11/12 max-w-lg p-6 shadow-2xl max-h-[80vh] flex flex-col"> <button id="closeModelSettingsModal" class="absolute top-2 right-2 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring">✖</button> <h2 class="text-xl font-semibold mb-4">Manage Available Models</h2> <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select which models you want to appear in the main "Switch Model" dropdown. Changes are saved automatically.</p> <div id="modelSettingsList" class="flex-1 overflow-y-auto space-y-3 pr-2"></div> </div> </div>
+<div id="settingsModal" class="fixed inset-0 hidden items-center justify-center z-50 bg-gray-900/60 backdrop-blur-sm" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-xl w-11/12 max-w-sm p-4 sm:p-6 shadow-2xl"><button id="closeSettingsModal" class="absolute top-2 right-2 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring">✖</button><div id="quickSettingsContent" class="space-y-6"></div></div></div>
+<div id="tagModal" class="fixed inset-0 hidden items-center justify-center z-50 bg-gray-900/60 backdrop-blur-sm" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-xl w-11/12 max-w-md p-6 shadow-2xl max-h-[80vh] flex flex-col"><button id="closeTagModal" class="absolute top-2 right-2 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring">✖</button><h2 id="tagModalTitle" class="text-xl font-semibold mb-4 flex-shrink-0">Assign Labels</h2><div id="tagModalContent" class="flex-1 overflow-y-auto space-y-4"></div></div></div>
+<div id="promptLibraryModal" class="fixed inset-0 hidden items-center justify-center z-50 bg-gray-900/60 backdrop-blur-sm" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-xl w-11/12 max-w-xl p-6 shadow-2xl max-h-[80vh] flex flex-col"><button id="closePromptLibraryModal" class="absolute top-2 right-2 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring">✖</button><h2 class="text-xl font-semibold mb-4 loc" data-loc="prompt_library">Prompt Library</h2><div id="promptList" class="flex-1 overflow-y-auto space-y-2 pr-2"></div><div class="mt-4 flex gap-2"><input id="newPromptName" placeholder="Prompt Name" class="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm flex-1 focus:border-blue-500 focus:ring-blue-500 focus-ring"><button id="savePromptBtn" class="bg-blue-600 text-white font-semibold rounded-lg px-4 py-2 transition-colors hover:bg-blue-700 focus-ring loc" data-loc="save_current_prompt">Save Current</button></div></div></div>
+<div id="tosModal" class="fixed inset-0 hidden items-center justify-center z-50 bg-gray-900/60 backdrop-blur-sm"><div class="bg-white dark:bg-gray-800 rounded-xl w-11/12 max-w-2xl p-6 shadow-2xl max-h-[80vh] overflow-y-auto"><button id="closeTosModal" class="absolute top-2 right-2 rounded-full p-2 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 focus-ring">✖</button><div id="tosContent" class="prose prose-sm dark:prose-invert max-w-none"></div></div></div>
+<div id="actionsPopup" class="fixed inset-0 z-50 flex items-end">
+    <div id="actionsBackdrop" class="absolute inset-0 bg-black/60"></div>
+    <div id="actionsPanel" class="relative w-full bg-[#1e1e1e] rounded-t-2xl p-4 text-white">
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 h-1 w-8 bg-gray-500 rounded-full"></div>
+        <div class="grid grid-cols-3 gap-3 text-center mb-4">
+            <button id="actionCamera" class="flex flex-col items-center justify-center gap-1 p-2 bg-gray-700/50 rounded-xl aspect-square focus-ring">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.776 48.776 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/></svg>
+                <span class="text-xs">Camera</span>
+            </button>
+            <button id="actionPhotos" class="flex flex-col items-center justify-center gap-1 p-2 bg-gray-700/50 rounded-xl aspect-square focus-ring">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+                <span class="text-xs">Photos</span>
+            </button>
+            <button id="actionFiles" class="flex flex-col items-center justify-center gap-1 p-2 bg-gray-700/50 rounded-xl aspect-square focus-ring">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0A2.25 2.25 0 013.75 7.5h16.5a2.25 2.25 0 012.25 2.25m-18.75 0h18.75"/></svg>
+                <span class="text-xs">Files</span>
+            </button>
+        </div>
+        <hr class="border-gray-700 my-3">
+        <div class="space-y-2 text-sm">
+            <button id="actionDeepResearch" class="flex items-center w-full gap-3 p-2 rounded-lg hover:bg-gray-700/50 focus-ring">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m15.75 15.75-2.489-2.489m0 0a3.375 3.375 0 1 0-4.773-4.773 3.375 3.375 0 0 0 4.774 4.774ZM21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                <span>Deep research</span>
+            </button>
+            <button id="actionCreateImage" class="flex items-center w-full gap-3 p-2 rounded-lg hover:bg-gray-700/50 focus-ring">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.594 3.94c.09-.542.56-1.008 1.11-1.226.55-.218 1.19-.243 1.73.052.54.295.934.846 1.024 1.442.09.596-.07 1.226-.464 1.733-.394.506-.98.82-1.62.858-.64.038-1.25-.19-1.73-.622-.48-.432-.75-.982-.75-1.586Zm10.032 6.352c.034.22.043.444.043.672 0 2.19-1.596 4.028-3.72 4.43-2.124.404-4.33-.29-5.456-2.073-.37-.578-.53-1.248-.51-1.92A3.375 3.375 0 0 1 8.25 9.19c1.472-1.446 3.823-1.446 5.296 0 .42.412.723.944.86 1.533ZM15.75 15.75a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Z" /></svg>
+                <span>Create image</span>
+            </button>
+            <button id="actionWebSearch" class="flex items-center w-full gap-3 p-2 rounded-lg hover:bg-gray-700/50 focus-ring">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 12h16.5M12 3.75c-3.866 0-7 4.03-7 9s3.134 9 7 9 7-4.03 7-9-3.134-9-7-9Z"/></svg>
+                <span>Web search</span>
+            </button>
+        </div>
     </div>
 </div>
-
-<div id="settingsModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-40" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-sm p-4 sm:p-6 relative shadow-lg"><button id="closeSettingsModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><div id="quickSettingsContent" class="space-y-6"></div></div></div>
-<div id="promptLibraryModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-50" role="dialog"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-xl p-6 relative shadow-lg max-h-[80vh] flex flex-col"><button id="closePromptLibraryModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><h2 class="text-xl font-semibold mb-4 loc" data-loc="prompt_library">Prompt Library</h2><div id="promptList" class="flex-1 overflow-y-auto space-y-2 pr-2"></div><div class="mt-4 flex gap-2"><input id="newPromptName" placeholder="Prompt Name" class="flex-1 border rounded px-2 py-1.5 dark:bg-gray-700 dark:border-gray-600 focus-trap"><button id="savePromptBtn" class="bg-blue-600 text-white px-3 rounded focus-trap loc" data-loc="save_current_prompt">Save Current</button></div></div></div>
-<div id="tosModal" class="modal-bg fixed inset-0 hidden items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-lg w-11/12 max-w-2xl p-6 relative shadow-lg max-h-[80vh] overflow-y-auto"><button id="closeTosModal" class="absolute top-3 right-3 text-gray-500 focus-trap">✖</button><div id="tosContent" class="prose prose-sm dark:prose-invert max-w-none"></div></div></div>
-<input type="file" id="attachFileInput" class="hidden" accept="image/*">
+<input type="file" id="attachFileInput" class="hidden" accept="image/*, .pdf, .txt, .md, .csv" multiple>
+<input type="file" id="cameraFileInput" class="hidden" accept="image/*" capture>
 <input type="file" id="importFileInput" class="hidden" accept=".json">
 
-<!-- TEMPLATES -->
-<template id="quick-settings-template">
-    <h2 class="text-xl font-semibold text-center mb-4 loc" data-loc="quick_settings">Quick Settings</h2>
-    <div class="space-y-4">
-        <div>
-            <label class="text-sm font-medium">Default Temperature: <span id="tempLabel"></span></label>
-            <input id="tempInput" type="range" min="0" max="2" step="0.05" class="w-full mt-1">
-        </div>
-        <label class="flex items-center gap-3"><input id="themeToggle" type="checkbox" class="form-checkbox rounded"><span>Use Dark Mode</span></label>
-        <label class="flex items-center gap-3"><input id="ttsToggle" type="checkbox" class="form-checkbox rounded"><span>Auto-play TTS on response</span></label>
-    </div>
-    <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button id="goToFullSettingsBtn" class="w-full text-center bg-blue-600 text-white px-3 py-2 rounded-lg focus-trap loc" data-loc="full_settings_btn">Go to Full Settings</button>
-    </div>
-</template>
-
-<template id="full-settings-template">
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-    <div class="space-y-4">
-        <h3 class="text-lg font-medium border-b pb-2 loc" data-loc="config">Configuration</h3>
-        <div><label class="text-sm font-medium loc" data-loc="api_key">API Key</label><div id="apiKeyContainer" class="relative"><input id="apiKeyInput" type="password" placeholder="sk-..." class="form-input w-full mt-1 dark:bg-gray-700 dark:border-gray-600"><button id="saveKeyBtn" class="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-2 py-0.5 rounded focus-trap loc" data-loc="save">Save</button></div><div id="apiStatus" class="hidden text-green-500 text-sm mt-1"></div></div>
-        <div><label class="text-sm font-medium">Model Management</label><button id="manageModelsBtn" class="mt-1 w-full text-center bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded-lg focus-trap">Manage Available Models</button></div>
-        <div class="flex items-center justify-between"><label class="text-sm font-medium loc" data-loc="language">Language</label><select id="languageSelect" class="form-select dark:bg-gray-700 dark:border-gray-600 rounded-md text-sm py-1"></select></div>
-    </div>
-    <div class="space-y-4"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="audio">Audio</h3><div><label for="ttsProvider" class="text-sm font-medium loc" data-loc="tts_provider">TTS Provider</label><select id="ttsProvider" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div><div id="openaiVoiceContainer" class="hidden"><label for="openaiVoice" class="text-sm font-medium loc" data-loc="openai_voice">OpenAI Voice</label><select id="openaiVoice" class="form-select w-full mt-1 dark:bg-gray-700 dark:border-gray-600"></select></div></div>
-    <div class="md:col-span-2 space-y-2"><h3 class="text-lg font-medium border-b pb-2 loc" data-loc="security_data">Data</h3><div class="flex gap-2 flex-wrap"><button id="exportPdfBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="export_pdf">Export Thread to PDF</button><button id="importBtn" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1.5 rounded focus-trap loc" data-loc="import_json">Import from JSON</button></div></div>
-  </div>
-  <div class="mt-6 pt-4 border-t"><p class="text-xs text-gray-500">ChatGPT Polished Client v7.0 | <button id="tosOpener" class="underline loc" data-loc="tos_privacy">Terms of Service & Privacy</button></p></div>
-</template>
+<!-- Templates -->
+<template id="quick-settings-template"> <h2 class="text-xl font-semibold text-center mb-4 loc" data-loc="quick_settings">Quick Settings</h2> <div class="space-y-4"> <div> <label class="text-sm font-medium">Default Temperature: <span id="tempLabel"></span></label> <input id="tempInput" type="range" min="0" max="2" step="0.05" class="w-full mt-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 focus-ring"> </div> <label class="flex items-center gap-3"><input id="themeToggle" type="checkbox" class="form-checkbox rounded text-blue-600 focus-ring"><span>Use Dark Mode</span></label> <label class="flex items-center gap-3"><input id="ttsToggle" type="checkbox" class="form-checkbox rounded text-blue-600 focus-ring"><span>Auto-play TTS on response</span></label> </div> <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-2"> <button id="goToLogsBtn" class="w-full text-center bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg px-4 py-2 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 focus-ring">View Logs & Errors</button> <button id="goToFullSettingsBtn" class="w-full text-center bg-blue-600 text-white font-semibold rounded-lg px-4 py-2 transition-colors hover:bg-blue-700 focus-ring loc" data-loc="full_settings_btn">Go to Full Settings</button> </div> </template>
+<template id="full-settings-template"> <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6"> <div class="space-y-4"> <h3 class="text-lg font-medium border-b border-gray-200 dark:border-gray-700 pb-2 loc" data-loc="config">Configuration</h3> <div><label class="text-sm font-medium loc" data-loc="api_key">API Key</label><div id="apiKeyContainer" class="relative mt-1"><input id="apiKeyInput" type="password" placeholder="sk-..." class="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 focus-ring"><button id="saveKeyBtn" class="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-3 py-1 text-sm rounded-md hover:bg-blue-700 focus-ring loc" data-loc="save">Save</button></div><div id="apiStatus" class="hidden text-green-500 text-sm mt-1"></div></div> <div><label class="text-sm font-medium">Model Management</label><button id="manageModelsBtn" class="mt-1 w-full text-center bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg px-4 py-2 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 focus-ring">Manage Available Models</button></div> <div class="flex items-center justify-between"><label class="text-sm font-medium loc" data-loc="language">Language</label><select id="languageSelect" class="form-select w-auto bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 focus-ring text-sm py-1"></select></div> </div> <div class="space-y-4"><h3 class="text-lg font-medium border-b border-gray-200 dark:border-gray-700 pb-2 loc" data-loc="audio">Audio</h3><div><label for="ttsProvider" class="text-sm font-medium loc" data-loc="tts_provider">TTS Provider</label><select id="ttsProvider" class="form-select w-full mt-1 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 focus-ring"></select></div><div id="openaiVoiceContainer" class="hidden"><label for="openaiVoice" class="text-sm font-medium loc" data-loc="openai_voice">OpenAI Voice</label><select id="openaiVoice" class="form-select w-full mt-1 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 focus-ring"></select></div></div> <div class="md:col-span-2 space-y-4"><h3 class="text-lg font-medium border-b border-gray-200 dark:border-gray-700 pb-2 loc" data-loc="security_data">Data & Settings</h3><div class="flex gap-2 flex-wrap" id="dataButtonsContainer"><button id="exportPdfBtn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg px-3 py-1.5 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 focus-ring text-sm" data-loc="export_pdf">Export Thread to PDF</button><button id="importBtn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg px-3 py-1.5 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 focus-ring text-sm" data-loc="import_json">Import from JSON</button> <button id="advancedSettingsBtn" class="bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-yellow-500/30 dark:hover:bg-yellow-500/20 focus-ring">Advanced Settings</button></div></div> </div> <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700"><p class="text-xs text-gray-500">ChatGPT Polished Client v24.0 | <button id="tosOpener" class="underline hover:text-blue-500 focus-ring loc" data-loc="tos_privacy">Terms of Service & Privacy</button></p></div> </template>
 
 <script type="module">
-// Initialize Libraries
+// Libs
 const { jsPDF } = window.jspdf;
 const { html2canvas } = window;
 
-/* ─── Globals, State & Helpers ────────────────── */
+// Globals, State & Helpers
 const $ = id => document.getElementById(id);
 const md = txt => DOMPurify.sanitize(marked.parse(txt, { gfm: true, breaks: true, smartLists: true }));
+let isLocalFile = false;
 const TARIFF = { 'gpt-4o': [0.005, 0.015], 'gpt-4o-mini': [0.00015, 0.0006], 'gpt-4-turbo': [0.01, 0.03], 'gpt-4': [0.03, 0.06], 'gpt-3.5-turbo': [0.0005, 0.0015] };
 const DEFAULT_RATE = [0.01, 0.03];
-const L = {
-    en: { switch_model: "Switch Model", settings: "Settings", quick_settings: "Quick Settings", full_settings: "Full Settings", full_settings_btn: "Go to Full Settings", prompt_library: "Prompt Library", export_all: "Export All Chats", web_search_label: "Search the web", save_current_prompt: "Save Current Prompt", config: "Configuration", api_key: "API Key", save: "Save", audio: "Audio", tts_provider: "TTS Provider", openai_voice: "OpenAI Voice", security_data: "Data", export_pdf: "Export Thread to PDF", import_json: "Import from JSON", tos_privacy: "Terms of Service & Privacy", language: "Language", api_key_saved: "API Key saved and models refreshed.", change: "Change", api_key_removed: "API Key removed." },
-    es: { switch_model: "Cambiar Modelo", settings: "Ajustes", quick_settings: "Ajustes Rápidos", full_settings: "Ajustes Completos", full_settings_btn: "Ir a Ajustes Completos", prompt_library: "Biblioteca de Prompts", export_all: "Exportar Todos los Chats", web_search_label: "Buscar en la web", save_current_prompt: "Guardar Prompt Actual", config: "Configuración", api_key: "Clave de API", save: "Guardar", audio: "Audio", tts_provider: "Proveedor de TTS", openai_voice: "Voz de OpenAI", security_data: "Datos", export_pdf: "Exportar Hilo a PDF", import_json: "Importar desde JSON", tos_privacy: "Términos de Servicio y Privacidad", language: "Idioma", api_key_saved: "Clave de API guardada y modelos actualizados.", change: "Cambiar", api_key_removed: "Clave de API eliminada." }
-};
-
-// --- CORRECTED: Whitelist JSON now includes all models and groups ---
-const MODEL_DETAILS = {
-    // Chat Group
-    'gpt-4o':        { name: 'GPT-4 Omni',        group: 'Chat', tier: 'Tier 1+', context: '128k', capabilities: ['Vision', 'Web Search', 'Data Analysis'] },
-    'gpt-4o-mini':   { name: 'GPT-4o Mini',       group: 'Chat', tier: 'Tier 1+', context: '128k', capabilities: ['Vision', 'Web Search', 'Fast'] },
-    'gpt-4-turbo':   { name: 'GPT-4 Turbo',       group: 'Chat', tier: 'Tier 1+', context: '128k', capabilities: ['Vision', 'Web Search'] },
-    'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo',     group: 'Chat', tier: 'Free Tier', context: '16k',  capabilities: ['Text-only', 'Fast'] },
-    'gpt-4':         { name: 'GPT-4 (Legacy)',    group: 'Chat', tier: 'Tier 1+', context: '8k',   capabilities: ['Text-only', 'Powerful'] },
-
-    // Thinking Group
-    'o4-mini':       { name: 'Thinking O4 Mini',  group: 'Thinking', tier: 'Tier 1+', context: '32k', capabilities: ['Text-only', 'Reasoning'] },
-    'o3-pro':        { name: 'Thinking O3 Pro',   group: 'Thinking', tier: 'Tier 1+', context: '16k', capabilities: ['Text-only', 'Balanced'] },
-    'o3':            { name: 'Thinking O3',       group: 'Thinking', tier: 'Free Tier', context: '8k',  capabilities: ['Text-only', 'Legacy'] },
-};
+const L = { en: { switch_model: "Switch Model", settings: "Settings", quick_settings: "Quick Settings", full_settings: "Full Settings", full_settings_btn: "Go to Full Settings", prompt_library: "Prompt Library", export_all: "Export All Chats", web_search_label: "Search the web", save_current_prompt: "Save Current Prompt", config: "Configuration", api_key: "API Key", save: "Save", audio: "Audio", tts_provider: "TTS Provider", openai_voice: "OpenAI Voice", security_data: "Data & Settings", export_pdf: "Export Thread to PDF", import_json: "Import from JSON", tos_privacy: "Terms of Service & Privacy", language: "Language", api_key_saved: "API Key saved and models refreshed.", change: "Change", api_key_removed: "API Key removed." }, es: { switch_model: "Cambiar Modelo", settings: "Ajustes", quick_settings: "Ajustes Rápidos", full_settings: "Ajustes Completos", full_settings_btn: "Ir a Ajustes Completos", prompt_library: "Biblioteca de Prompts", export_all: "Exportar Todos los Chats", web_search_label: "Buscar en la web", save_current_prompt: "Guardar Prompt Actual", config: "Configuración", api_key: "Clave de API", save: "Guardar", audio: "Audio", tts_provider: "Proveedor de TTS", openai_voice: "Voz de OpenAI", security_data: "Datos y Ajustes", export_pdf: "Exportar Hilo a PDF", import_json: "Importar desde JSON", tos_privacy: "Términos de Servicio y Privacidad", language: "Idioma", api_key_saved: "Clave de API guardada y modelos actualizados.", change: "Cambiar", api_key_removed: "Clave de API eliminada." } };
+const MODEL_DETAILS = { 'gpt-4o': { name: 'GPT-4 Omni', group: 'Chat', tier: 'Tier 1+', context: '128k', capabilities: ['Vision', 'Web Search', 'Data Analysis'] }, 'gpt-4o-mini': { name: 'GPT-4o Mini', group: 'Chat', tier: 'Tier 1+', context: '128k', capabilities: ['Vision', 'Web Search', 'Fast'] }, 'gpt-4-turbo': { name: 'GPT-4 Turbo', group: 'Chat', tier: 'Tier 1+', context: '128k', capabilities: ['Vision', 'Web Search'] }, 'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', group: 'Chat', tier: 'Free Tier', context: '16k', capabilities: ['Text-only', 'Fast'] }, 'gpt-4': { name: 'GPT-4 (Legacy)', group: 'Chat', tier: 'Tier 1+', context: '8k', capabilities: ['Text-only', 'Powerful'] }, 'o4-mini-high': { name: 'Thinking O4 Mini High', group: 'Thinking', tier: 'Tier 1+', context: '128k', capabilities: ['Text-only', 'Advanced Reasoning'] }, 'o4-mini': { name: 'Thinking O4 Mini', group: 'Thinking', tier: 'Tier 1+', context: '32k', capabilities: ['Text-only', 'Reasoning'] }, 'o3-pro': { name: 'Thinking O3 Pro', group: 'Thinking', tier: 'Tier 1+', context: '16k', capabilities: ['Text-only', 'Balanced'] }, 'o3': { name: 'Thinking O3', group: 'Thinking', tier: 'Free Tier', context: '8k', capabilities: ['Text-only', 'Legacy'] }, };
 const getBaseAlias = id => id.replace(/-(\d{4}(?:-\d{2}){0,2}|preview|vision-preview|16k|32k|128k)$/i, '');
-
-let state = {
-    apiKey: '', theme: 'light', model: 'gpt-4o', temperature: 1.0, autoRead: false,
-    threads: [], currentThread: null, prompts: [],
-    ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en',
-    enabledModels: Object.keys(MODEL_DETAILS)
-};
-
-let tokenizer, currentAudioPlayer, attachedImages = [];
-let availableApiModelIds = new Set(); 
+let state = { apiKey: '', theme: 'light', model: 'gpt-4o', temperature: 1.0, autoRead: false, threads: [], currentThread: null, prompts: [], ttsProvider: 'browser', openaiVoice: 'alloy', language: 'en', enabledModels: Object.keys(MODEL_DETAILS), allTags: [], webSearchActive: false };
+let tokenizer, currentAudioPlayer, attachedImages = [], availableApiModelIds = new Set(), logStore = [];
+let recognition;
+let isRecognizing = false;
 
 const loc = (key) => L[state.language]?.[key] || L['en'][key];
-function localizeUI() { document.querySelectorAll('[data-loc]').forEach(el => { el.textContent = loc(el.dataset.loc); }); }
+function localizeUI() { document.querySelectorAll('[data-loc]').forEach(el => { if(el.dataset.loc) el.textContent = loc(el.dataset.loc); }); }
 async function calculateTokens(text) { if (tokenizer) return tokenizer.encode(text).length; return Math.ceil((text || '').length / 4); }
 const costOf = (m, inT, outT) => { const rate = TARIFF[getBaseAlias(m)] || DEFAULT_RATE; return (inT / 1000 * rate[0]) + (outT / 1000 * rate[1]); };
-let toastTimer;
-function showToast(message, duration = 3000) { clearTimeout(toastTimer); const toast = $('toast'); toast.textContent = message; document.documentElement.style.setProperty('--toast-translate-y', '0'); toastTimer = setTimeout(() => document.documentElement.style.setProperty('--toast-translate-y', '120%'), duration); }
 
-/* ─── State, PWA & Initialization ────────────────── */
-async function loadState() {
-    const s = localStorage.getItem('appState');
-    if (s) {
-        try {
-            const loadedState = JSON.parse(s);
-            state = { ...state, ...loadedState };
-            if (!state.enabledModels) state.enabledModels = Object.keys(MODEL_DETAILS);
-        } catch (e) { console.error("Could not parse saved state. Starting fresh.", e); }
+function showBanner(message, type = 'success', duration = 0) {
+    const banner = $('notificationBanner');
+    const messageEl = $('notificationMessage');
+
+    if (banner.dataset.timer) {
+        clearTimeout(parseInt(banner.dataset.timer));
     }
-    await refreshAvailableModels();
-    setupUI();
+    const appearance = { success: 'bg-green-600', error: 'bg-red-600', warning: 'bg-yellow-500' };
+    
+    banner.classList.remove('bg-green-600', 'bg-red-600', 'bg-yellow-500', 'hidden');
+    banner.classList.add(appearance[type] || appearance.success);
+    
+    messageEl.textContent = message;
+    
+    if (duration > 0) {
+        const timer = setTimeout(() => banner.classList.add('hidden'), duration);
+        banner.dataset.timer = timer.toString();
+    }
 }
+
+$('closeNotification').onclick = () => {
+    const banner = $('notificationBanner');
+    if (banner.dataset.timer) {
+        clearTimeout(parseInt(banner.dataset.timer));
+    }
+    banner.classList.add('hidden');
+};
+
+const TAG_COLORS = [ 'bg-green-500', 'bg-red-500', 'bg-blue-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500' ];
+const getTagColor = (tag) => { let hash = 0; for (let i = 0; i < tag.length; i++) { hash = tag.charCodeAt(i) + ((hash << 5) - hash); } return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length]; };
+function deleteTagGlobally(tagToDelete) { if (!tagToDelete || !confirm(`Delete label "${tagToDelete}"? It will be removed from all chats.`)) { return false; } state.allTags = state.allTags.filter(t => t !== tagToDelete); state.threads.forEach(th => { if (th.tags) { th.tags = th.tags.filter(t => t !== tagToDelete); } }); saveState(); return true; }
+
+// Logging Utility & State Management
+function setupLogging() { const originalConsole = { log: console.log, warn: console.warn, error: console.error }; const logToStore = (type, args) => { const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' '); logStore.push({ type, message, timestamp: new Date() }); }; console.log = (...args) => { logToStore('log', args); originalConsole.log.apply(console, args); }; console.warn = (...args) => { logToStore('warn', args); originalConsole.warn.apply(console, args); }; console.error = (...args) => { logToStore('error', args); originalConsole.error.apply(console, args); }; }
+async function loadState() { const s = localStorage.getItem('appState'); if (s) { try { const loadedState = JSON.parse(s); state = { ...state, ...loadedState }; if (!state.enabledModels) state.enabledModels = Object.keys(MODEL_DETAILS); if (!state.allTags) state.allTags = []; if(state.webSearchActive === undefined) state.webSearchActive = false; } catch (e) { console.error("Could not parse saved state. Starting fresh.", e); } } await refreshAvailableModels(); }
 async function saveState() { localStorage.setItem('appState', JSON.stringify(state)); }
+async function refreshAvailableModels() { if (!state.apiKey) { availableApiModelIds.clear(); return; } try { const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + state.apiKey } }); if (!r.ok) throw new Error('Failed to fetch'); const { data } = await r.json(); availableApiModelIds = new Set(data.map(m => m.id)); } catch (e) { console.error('Could not fetch models from API:', e); availableApiModelIds.clear(); } }
 
-async function refreshAvailableModels() {
-    if (!state.apiKey) { availableApiModelIds.clear(); return; }
-    try {
-        const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + state.apiKey } });
-        if (!r.ok) throw new Error('Failed to fetch');
-        const { data } = await r.json();
-        availableApiModelIds = new Set(data.map(m => m.id));
-    } catch (e) {
-        console.error('Could not fetch models from API:', e);
-        availableApiModelIds.clear();
+// UI & Navigation
+function setupUI() {
+    document.documentElement.lang = state.language;
+    document.documentElement.classList.toggle('dark', state.theme === 'dark');
+    updateCurrentModelDisplay();
+    renderFullSettingsPage(); 
+    updateFeatureVisibility();
+    if (!state.currentThread && state.threads.length > 0) {
+        state.currentThread = state.threads[0].id;
     }
+    renderSidebar();
+    loadThread();
+    localizeUI();
 }
 
-function setupUI() { document.documentElement.lang = state.language; document.documentElement.classList.toggle('dark', state.theme === 'dark'); updateCurrentModelDisplay(); updateAttachButtonVisibility(); if (!state.currentThread && state.threads.length > 0) state.currentThread = state.threads[0].id; renderThreads(); loadThread(); localizeUI(); }
-function updateCurrentModelDisplay() { $('currentModel').textContent = MODEL_DETAILS[state.model]?.name || state.model; }
-function updateAttachButtonVisibility() { const isVision = MODEL_DETAILS[state.model]?.capabilities.includes('Vision'); $('attachBtn').classList.toggle('hidden', !isVision); }
+function setupEventHandlers() {
+    const ta = $('userInput');
+    ta.addEventListener('input', () => {
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 256) + 'px';
+        updateSendButton();
+    });
+    $('menuBtn').onclick = () => $('sidebar').classList.toggle('open');
+    $('closeSidebar').onclick = () => $('sidebar').classList.remove('open');
+    $('newChatBtnHeader').onclick = newThread;
+    $('attachBtn').onclick = () => $('actionsPopup').classList.toggle('open');
+    $('actionsBackdrop').onclick = () => $('actionsPopup').classList.remove('open');
+    $('attachFileInput').onchange = (e) => handleFileAttachment(e.target);
+    $('cameraFileInput').onchange = (e) => handleFileAttachment(e.target);
+    $('sendBtn').onclick = () => sendMsg();
+    $('micBtn').onclick = toggleSpeechRecognition;
+    $('closeTagModal').onclick = () => modalAction('tagModal', 'close');
+    $('chatSearch').oninput = (e) => renderSidebar(e.target.value);
 
-function registerServiceWorker() { if ('serviceWorker' in navigator) { const swJS = `const CACHE_NAME='chat-final-v1';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE_NAME).then(c=>c.add('/'))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`; const swBlob = new Blob([swJS], { type: 'text/javascript' }); navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(e => console.error('SW registration failed:', e)); } }
+    // Actions Popup Buttons
+    $('actionCamera').onclick = () => { $('cameraFileInput').click(); $('actionsPopup').classList.remove('open'); };
+    $('actionPhotos').onclick = () => { $('attachFileInput').click(); $('actionsPopup').classList.remove('open'); };
+    $('actionFiles').onclick = () => { $('attachFileInput').click(); $('actionsPopup').classList.remove('open'); };
+    $('actionWebSearch').onclick = () => toggleWebSearchMode(true);
+    $('actionDeepResearch').onclick = () => showBanner('Deep research coming soon!', 'success', 3000);
+    $('actionCreateImage').onclick = () => showBanner('Image creation coming soon!', 'success', 3000);
+    $('cancelModeBtn').onclick = () => toggleWebSearchMode(false);
 
-/* ─── UI & Event Listeners ────────────────── */
-const ta = $('userInput'), sendBtn = $('sendBtn');
-const updateSendButton = () => { sendBtn.disabled = ta.value.trim().length === 0 && attachedImages.length === 0; };
-ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 256) + 'px'; updateSendButton(); });
-const modalAction = (modalId, action) => $(modalId).classList.replace(action === 'open' ? 'hidden' : 'flex', action === 'open' ? 'flex' : 'hidden');
-$('menuBtn').onclick = () => $('sidebar').classList.toggle('open');
-$('closeSidebar').onclick = () => $('sidebar').classList.remove('open');
-$('newChatBtnHeader').onclick = newThread;
-$('attachBtn').onclick = () => $('attachFileInput').click();
-$('attachFileInput').onchange = handleFileAttachment;
-sendBtn.onclick = () => sendMsg();
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modelModal', 'settingsModal', 'modelSettingsModal', 'promptLibraryModal', 'tosModal'].forEach(id => modalAction(id, 'close')); } });
-document.addEventListener('click', (e) => { const sidebar = $('sidebar'); const menuBtn = $('menuBtn'); if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !menuBtn.contains(e.target)) { sidebar.classList.remove('open'); } });
-
-/* ─── Thread Management & Rendering ────────── */
-function renderThreads() { const ul = $('threadList'); ul.innerHTML = ''; state.threads.forEach(t => { const li = document.createElement('li'); li.className = `p-2 rounded flex items-center justify-between cursor-pointer ${t.id === state.currentThread ? 'bg-blue-100 dark:bg-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`; li.innerHTML = `<span class="flex-1 truncate">${t.title}</span><span class="text-xs opacity-70 mr-1">$${(t.cost || 0).toFixed(4)}</span>`; li.onclick = () => { if (state.currentThread === t.id) return; state.currentThread = t.id; saveState(); renderThreads(); loadThread(); $('sidebar').classList.remove('open'); }; ul.appendChild(li); }); }
-function loadThread() { $('chatView').innerHTML = ''; const th = state.threads.find(x => x.id === state.currentThread); if (!th) { updateCostUI(0, 0); return; } th.messages.forEach((m, index) => addMsg(m, index)); updateCostUI(0, th.cost || 0); }
-function newThread() { showView('chatView'); const id = Date.now().toString(); state.threads.unshift({ id, title: 'New Chat', messages: [], cost: 0 }); state.currentThread = id; ta.value = ''; attachedImages = []; renderImagePreviews(); updateSendButton(); saveState(); renderThreads(); loadThread(); }
-function addMsg(message, index) { const chat = $('chatView'), div = document.createElement('div'); let innerHTML = ''; if(message.role === 'system'){ innerHTML = `<div class="text-center text-xs text-gray-400 p-2 my-2 border-t border-b dark:border-gray-700 flex items-center justify-center gap-2">${md(message.content)}</div>`; } else if (message.role === 'user') { let textContent = '', imageHTML = ''; if (Array.isArray(message.content)) { message.content.forEach(p => { if (p.type === 'text') textContent = p.text; if (p.type === 'image_url') imageHTML += `<img src="${p.image_url.url}" class="max-w-xs rounded-lg mt-2" alt="User attachment">`; }); } else { textContent = message.content; } innerHTML = `<div class="text-right text-xs text-gray-400 mb-1">You</div><div class="ml-auto bg-blue-500 text-white rounded-lg p-3 max-w-xl inline-block">${md(textContent)}${imageHTML}</div>`; div.className = 'text-right'; } else { innerHTML = `<div class="text-left text-xs text-gray-400 mb-1">ChatGPT</div><div class="relative group bg-gray-200 dark:bg-gray-700 rounded-lg p-3 max-w-xl inline-block" id="msg-${index}"><div class="prose dark:prose-invert max-w-none">${md(message.content)}</div><div class="msg-actions absolute -bottom-2.5 right-2 flex items-center gap-2 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"><button class="speak-btn p-1" title="Play/Stop Audio"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg></button><button class="regen-btn p-1" title="Regenerate Response"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></svg></button></div></div>`; } div.innerHTML = innerHTML; chat.appendChild(div); if (message.role === 'assistant') { div.querySelector('.speak-btn').onclick = (e) => toggleTTS(message.content, e.currentTarget); div.querySelector('.regen-btn').onclick = () => regenerateResponse(index); } }
-function updateCostUI(last, total) { $('liveCost').textContent = `≈$${total.toFixed(5)}`; }
-async function regenerateResponse(assistantMsgIndex) { const th = state.threads.find(x => x.id === state.currentThread); if (!th || assistantMsgIndex === 0) return; th.cost -= (th.messages[assistantMsgIndex].cost || 0); th.messages.splice(assistantMsgIndex); loadThread(); await sendMsg(th.messages[th.messages.length - 1].content, true); }
-function handleFileAttachment(e) { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { attachedImages.push({ data: re.target.result }); renderImagePreviews(); updateSendButton(); }; reader.readAsDataURL(file); } e.target.value = null; }
-function renderImagePreviews() { const container = $('imagePreviews'); container.innerHTML = ''; attachedImages.forEach((img, index) => { const div = document.createElement('div'); div.className = 'relative'; div.innerHTML = `<img src="${img.data}" class="h-16 w-16 object-cover rounded-md"><button class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">×</button>`; div.querySelector('button').onclick = () => { attachedImages.splice(index, 1); renderImagePreviews(); updateSendButton(); }; container.appendChild(div); }); }
-
-/* ─── API & Audio ────────── */
-async function fetchWithRetry(url, options, retries = 3, delay = 1000) { try { const res = await fetch(url, options); if (!res.ok && (res.status === 429 || res.status >= 500) && retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } return res; } catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } throw err; } }
-async function sendMsg(contentOverride = null, isRegen = false) { if (!state.apiKey) { showToast('Set your API key first'); return; } const textContent = contentOverride ?? ta.value.trim(); if (!textContent && attachedImages.length === 0) return; $('spinner').classList.remove('hidden'); $('sendIcon').classList.add('hidden'); sendBtn.disabled = true; const th = state.threads.find(x => x.id === state.currentThread); if ($('webSearchToggle').checked && !isRegen) { addMsg({role: 'system', content: '<div class="loader"></div> Searching the web...'}, th.messages.length); } let userMessageContent = []; if (textContent) userMessageContent.push({ type: 'text', text: textContent }); attachedImages.forEach(img => userMessageContent.push({ type: "image_url", image_url: { url: img.data } })); if (userMessageContent.length === 1 && userMessageContent[0].type === 'text') { userMessageContent = userMessageContent[0].text; } if (!isRegen) { th.messages.push({ role: 'user', content: userMessageContent }); addMsg(th.messages[th.messages.length - 1], th.messages.length - 1); } if (!th.title || th.title === 'New Chat') { th.title = typeof userMessageContent === 'string' ? userMessageContent.slice(0, 30) : (userMessageContent.find(p => p.type === 'text')?.text.slice(0, 30) || 'Image Query'); } ta.value = ''; attachedImages = []; renderImagePreviews(); updateSendButton(); ta.dispatchEvent(new Event('input')); const requestBody = { model: state.model, messages: th.messages.map(({cost, ...rest}) => rest), temperature: state.temperature, stream: true }; if ($('webSearchToggle').checked) { requestBody.tools = [{ type: 'web_search' }]; $('webSearchToggle').checked = false; } const inT = await calculateTokens(JSON.stringify(requestBody)); let acc = '', outT = 0; const assistantMsgIndex = th.messages.length; th.messages.push({role: 'assistant', content: '...'}); addMsg(th.messages[assistantMsgIndex], assistantMsgIndex); const currentMessageDiv = $(`msg-${assistantMsgIndex}`); const contentDiv = currentMessageDiv.querySelector('.prose'); try { const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify(requestBody) }); if (!res.ok) { const errorPayload = await res.json().catch(() => ({ error: { message: res.statusText } })); const errorMessage = errorPayload.error?.message || `Status: ${res.status}`; throw new Error(`API Error: ${errorMessage}`); } const rd = res.body.getReader(), dec = new TextDecoder(); while (true) { const { value, done } = await rd.read(); if (done) break; const chunk = dec.decode(value); const lines = chunk.split('\n\n'); for(const line of lines){ if (line.startsWith('data: ')) { const data = line.substring(6); if (data.trim() === '[DONE]') continue; try { const parsed = JSON.parse(data); const delta = parsed.choices[0].delta; if (delta.content) { acc += delta.content; contentDiv.innerHTML = md(acc); } if (delta.tool_calls) { const systemMsg = document.querySelector('#chatView .text-center'); if (systemMsg) systemMsg.innerHTML = `<div class="loader"></div> Executing search...`; } } catch (e) { /* Ignore parsing errors for non-JSON lines */ } } } } outT = await calculateTokens(acc); const cost = costOf(state.model, inT, outT); th.cost = (th.cost || 0) + cost; const newAssistantMsg = { role: 'assistant', content: acc, cost }; th.messages[assistantMsgIndex] = newAssistantMsg; contentDiv.innerHTML = md(acc); if (state.autoRead && !isRegen) { toggleTTS(newAssistantMsg.content, currentMessageDiv.querySelector('.speak-btn')); } } catch (err) { console.error(err); th.messages[assistantMsgIndex].content = `⚠️ Error: ${err.message}`; contentDiv.innerHTML = `⚠️ Error: ${err.message}`; } finally { saveState(); renderThreads(); updateCostUI(0, th.cost); $('spinner').classList.add('hidden'); $('sendIcon').classList.remove('hidden'); updateSendButton(); } }
-async function toggleTTS(text, btn) { if (currentAudioPlayer && !currentAudioPlayer.paused) { currentAudioPlayer.pause(); return; } btn.innerHTML = `<div class="loader"></div>`; const playIcon = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>'; const stopIcon = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18V6h2v12H6zm8-12v12h2V6h-2z"/></svg>'; const resetUI = () => { currentAudioPlayer = null; btn.innerHTML = playIcon; }; if (state.ttsProvider === 'browser') { if (speechSynthesis.speaking) speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.onstart = () => btn.innerHTML = stopIcon; u.onend = resetUI; speechSynthesis.speak(u); } else { try { const res = await fetchWithRetry('https://api.openai.com/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify({ model: 'tts-1', input: text, voice: state.openaiVoice }) }); if (!res.ok) throw new Error('TTS API request failed'); const blob = await res.blob(); currentAudioPlayer = new Audio(URL.createObjectURL(blob)); currentAudioPlayer.play(); btn.innerHTML = stopIcon; currentAudioPlayer.onended = resetUI; currentAudioPlayer.onpause = resetUI; } catch (e) { showToast('Failed to play OpenAI TTS.'); console.error(e); resetUI(); } } }
-
-/* ─── Settings, Modals & Data I/O ─── */
-function showView(viewId) { $('chatView').classList.add('hidden'); $('settingsPage').classList.add('hidden'); $('inputBar').classList.add('hidden'); $(viewId).classList.remove('hidden'); if (viewId === 'chatView') { $('inputBar').classList.remove('hidden'); } }
-function setupModal(modalId, openBtnId, beforeOpen) { const openBtn = $(openBtnId); if(openBtn) { openBtn.onclick = () => { if (beforeOpen) beforeOpen(); modalAction(modalId, 'open'); }; } $(`close${modalId.charAt(0).toUpperCase() + modalId.slice(1)}`).onclick = () => modalAction(modalId, 'close'); }
-
-setupModal('modelModal', 'modelBtn', populateModels);
-setupModal('settingsModal', 'settingsOpener', renderQuickSettings);
-setupModal('promptLibraryModal', 'promptLibraryOpener', renderPrompts);
-setupModal('tosModal', 'tosOpener');
-setupModal('modelSettingsModal', 'manageModelsBtn', renderModelSettings);
-
-function renderQuickSettings() { const content = $('quickSettingsContent'); content.innerHTML = $('quick-settings-template').innerHTML; $('tempInput').value = state.temperature; $('tempLabel').textContent = state.temperature; $('themeToggle').checked = state.theme === 'dark'; $('ttsToggle').checked = state.autoRead; $('tempInput').oninput = e => { $('tempLabel').textContent = e.target.value; }; $('tempInput').onchange = e => { state.temperature = +e.target.value; saveState(); }; $('themeToggle').onchange = e => { state.theme = e.target.checked ? 'dark' : 'light'; document.documentElement.classList.toggle('dark', e.target.checked); saveState(); }; $('ttsToggle').onchange = e => { state.autoRead = e.target.checked; saveState(); }; $('goToFullSettingsBtn').onclick = () => { modalAction('settingsModal', 'close'); showView('settingsPage'); }; localizeUI(); }
-function renderFullSettingsPage() { const content = $('fullSettingsContent'); content.innerHTML = $('full-settings-template').innerHTML; $('apiKeyInput').value = state.apiKey; keyUI(!!state.apiKey); const ttsProviderSelect = $('ttsProvider'); ['browser', 'openai'].forEach(p => ttsProviderSelect.add(new Option(p.charAt(0).toUpperCase() + p.slice(1), p, p === state.ttsProvider, p === state.ttsProvider))); const openaiVoiceSelect = $('openaiVoice'); ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].forEach(v => openaiVoiceSelect.add(new Option(v.charAt(0).toUpperCase() + v.slice(1), v, v === state.openaiVoice, v === state.openaiVoice))); $('openaiVoiceContainer').classList.toggle('hidden', state.ttsProvider !== 'openai'); const langSelect = $('languageSelect'); Object.keys(L).forEach(lang => langSelect.add(new Option(lang.toUpperCase(), lang, lang === state.language, lang === state.language))); $('saveKeyBtn').onclick = async () => { const k = $('apiKeyInput').value.trim(); if (k) { state.apiKey = k; await refreshAvailableModels(); saveState(); keyUI(true); showToast(loc('api_key_saved')); }}; ttsProviderSelect.onchange = e => { state.ttsProvider = e.target.value; $('openaiVoiceContainer').classList.toggle('hidden', e.target.value !== 'openai'); saveState(); }; openaiVoiceSelect.onchange = e => { state.openaiVoice = e.target.value; saveState(); }; langSelect.onchange = e => { state.language = e.target.value; saveState(); localizeUI(); renderFullSettingsPage(); }; setupDataButtons(); setupModal('modelSettingsModal', 'manageModelsBtn', renderModelSettings); localizeUI(); }
-
-// --- CORRECTED: Model Settings Panel now groups models ---
-function renderModelSettings() {
-    const list = $('modelSettingsList');
-    list.innerHTML = '';
-
-    const groupedModels = Object.entries(MODEL_DETAILS).reduce((acc, [alias, details]) => {
-        const group = details.group || 'Other';
-        if (!acc[group]) acc[group] = [];
-        acc[group].push([alias, details]);
-        return acc;
-    }, {});
-
-    const groupOrder = ['Chat', 'Thinking', 'Other'];
-
-    groupOrder.forEach(groupName => {
-        if (groupedModels[groupName]) {
-            const header = document.createElement('h3');
-            header.className = 'text-sm font-semibold text-gray-500 dark:text-gray-400 mt-4 first:mt-0';
-            header.textContent = groupName;
-            list.appendChild(header);
-
-            groupedModels[groupName].forEach(([alias, details]) => {
-                const isChecked = state.enabledModels.includes(alias);
-                const label = document.createElement('label');
-                label.className = 'flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer';
-                label.innerHTML = `
-                    <input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded" ${isChecked ? 'checked' : ''}>
-                    <span class="font-semibold">${details.name}</span>`;
-                const checkbox = label.querySelector('input');
-                checkbox.onchange = () => {
-                    if (checkbox.checked) {
-                        if (!state.enabledModels.includes(alias)) state.enabledModels.push(alias);
-                    } else {
-                        state.enabledModels = state.enabledModels.filter(m => m !== alias);
-                        if (state.model === alias && state.enabledModels.length > 0) {
-                            state.model = state.enabledModels[0];
-                            updateCurrentModelDisplay();
-                        }
-                    }
-                    saveState();
-                };
-                list.appendChild(label);
-            });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            ['modelModal', 'settingsModal', 'modelSettingsModal', 'promptLibraryModal', 'tosModal', 'tagModal'].forEach(id => modalAction(id, 'close'));
+            $('actionsPopup').classList.remove('open');
+            showView('chatView');
         }
+    });
+    document.addEventListener('click', (e) => {
+        const sidebar = $('sidebar');
+        const menuBtn = $('menuBtn');
+        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !menuBtn.contains(e.target)) {
+            sidebar.classList.remove('open');
+        }
+    });
+    
+    $('backToChatBtn').onclick = () => showView('chatView');
+    $('backToChatFromLogsBtn').onclick = () => showView('chatView');
+    $('backToSettingsBtn').onclick = () => showView('settingsPage');
+    $('backToChatFromTagsBtn').onclick = () => showView('chatView');
+
+    $('manageTagsBtnSidebar').onclick = (e) => { e.stopPropagation(); renderManageTagsPage(); showView('manageTagsPage'); $('sidebar').classList.remove('open'); };
+    $('promptLibraryOpener').onclick = (e) => { e.stopPropagation(); modalAction('promptLibraryModal', 'open'); renderPrompts(); };
+    $('exportAllBtn').onclick = (e) => { e.stopPropagation(); const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const a = document.createElement('a'); a.href = dataStr; a.download = `chat_export_${Date.now()}.json`; a.click(); showBanner('All application data exported.', 'success', 3000); };
+}
+
+function updateCurrentModelDisplay() { $('currentModel').textContent = MODEL_DETAILS[state.model]?.name || state.model; }
+
+function updateFeatureVisibility() { 
+    const exportBtn = $('exportPdfBtn');
+    if (exportBtn) {
+        exportBtn.style.display = isLocalFile ? 'none' : 'inline-block';
+    }
+    const costEl = $('liveCost');
+    if (costEl) {
+        costEl.style.display = isLocalFile ? 'none' : 'inline';
+    }
+}
+function registerServiceWorker() { if (!isLocalFile && 'serviceWorker' in navigator) { const swJS = `const CACHE_NAME='chat-final-v1';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE_NAME).then(c=>c.add('/'))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`; const swBlob = new Blob([swJS], { type: 'text/javascript' }); navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(e => console.error('SW registration failed:', e)); } }
+function showView(viewId) { ['chatView', 'settingsPage', 'logsPage', 'advancedSettingsPage', 'manageTagsPage'].forEach(id => $(id).classList.add('hidden')); if ($(viewId)) $(viewId).classList.remove('hidden'); const isChatView = viewId === 'chatView'; $('inputBar').classList.toggle('hidden', !isChatView); }
+
+const modalAction = (modalId, action) => {
+    const modal = $(modalId);
+    if (!modal) return;
+    const isOpening = action === 'open';
+    modal.classList.toggle('hidden', !isOpening);
+    modal.classList.toggle('flex', isOpening);
+    if (isOpening) {
+        const firstFocusable = modal.querySelector('button, input, select, textarea');
+        firstFocusable?.focus();
+    }
+};
+
+function renderThreads(filter = '') {
+    const ul = $('threadList');
+    ul.innerHTML = '';
+    let threadsToRender = state.threads;
+    const lowerFilter = filter.toLowerCase();
+    if (lowerFilter) {
+        if (lowerFilter.startsWith('tag:') || lowerFilter.startsWith('#')) {
+            const tagFilter = lowerFilter.replace(/^(tag:|#)/, '');
+            threadsToRender = state.threads.filter(t => t.tags && t.tags.some(tag => tag.toLowerCase().includes(tagFilter)));
+        } else {
+            threadsToRender = state.threads.filter(t => t.title.toLowerCase().includes(lowerFilter));
+        }
+    }
+
+    const formatTimestamp = (ts) => {
+        if (!ts) return '';
+        const date = new Date(ts);
+        const now = new Date();
+        const diffSeconds = Math.floor((now - date) / 1000);
+        if (diffSeconds < 60) return 'Just now';
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        if (diffMinutes < 60) return `${diffMinutes}m`;
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) return `${diffHours}h`;
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    };
+
+    threadsToRender.forEach(t => {
+        const li = document.createElement('li');
+        li.dataset.threadId = t.id;
+        li.className = `relative group p-3 rounded-lg flex flex-col gap-1.5 cursor-pointer transition-colors ${t.id === state.currentThread ? 'bg-blue-100 dark:bg-blue-900/50' : 'hover:bg-gray-100 dark:hover:bg-gray-700/50'}`;
+
+        const lastMessage = t.messages[t.messages.length - 1];
+        const lastResponse = t.messages.slice().reverse().find(m => m.role === 'assistant');
+        const previewMsg = lastResponse || t.messages[0];
+        let previewText = "No messages yet...";
+        if (previewMsg) {
+            let content = Array.isArray(previewMsg.content) ? (previewMsg.content.find(p => p.type === 'text')?.text || 'Image') : previewMsg.content;
+            previewText = content.replace(/<\/?[^>]+(>|$)/g, "").replace(/\n/g, " ");
+        }
+
+        const titleContainer = document.createElement('div');
+        titleContainer.className = 'flex-1 truncate';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'text-sm font-semibold';
+        titleSpan.textContent = t.title;
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.value = t.title;
+        titleInput.className = 'hidden w-full bg-transparent border-b border-gray-400 focus:outline-none text-sm';
+        titleContainer.append(titleSpan, titleInput);
+        
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2';
+        timestampSpan.textContent = formatTimestamp(lastMessage?.timestamp);
+
+        const topRow = document.createElement('div');
+        topRow.className = 'flex items-baseline justify-between gap-2';
+        topRow.appendChild(titleContainer);
+
+        const rightAlignContainer = document.createElement('div');
+        rightAlignContainer.className = 'flex items-center gap-2 flex-shrink-0';
+        topRow.appendChild(rightAlignContainer);
+
+        const hoverControls = document.createElement('div');
+        hoverControls.className = 'hidden sm:flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity';
+        
+        const mobileMenuContainer = document.createElement('div');
+        mobileMenuContainer.className = 'relative sm:hidden';
+        const mobileMenuBtn = document.createElement('button');
+        mobileMenuBtn.className = 'rounded-full p-1.5 text-gray-500 dark:text-gray-400';
+        mobileMenuBtn.innerHTML = '<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" /></svg>';
+        const mobileMenu = document.createElement('div');
+        mobileMenu.className = 'thread-context-menu hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10';
+        mobileMenu.innerHTML = `<div class="py-1"></div>`;
+        mobileMenuContainer.append(mobileMenuBtn, mobileMenu);
+        rightAlignContainer.append(timestampSpan, hoverControls, mobileMenuContainer);
+        
+        const bottomRow = document.createElement('div');
+        bottomRow.className = 'flex items-center justify-between text-xs text-gray-500 dark:text-gray-400';
+        const previewSpan = document.createElement('span');
+        previewSpan.className = 'truncate pr-2';
+        previewSpan.textContent = previewText;
+        const metaContainer = document.createElement('div');
+        metaContainer.className = 'flex items-center gap-2 flex-shrink-0';
+        if (!isLocalFile && t.cost > 0) {
+            const costSpan = document.createElement('span');
+            costSpan.className = 'opacity-70 flex items-center gap-0.5';
+            costSpan.innerHTML = `<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg><span>${(t.cost || 0).toFixed(4)}</span>`;
+            metaContainer.appendChild(costSpan);
+        }
+        if (t.tags && t.tags.length > 0) {
+            const tagsContainer = document.createElement('div');
+            tagsContainer.className = 'flex items-center gap-1';
+            t.tags.slice(0, 1).forEach(tag => {
+                const tagEl = document.createElement('span');
+                tagEl.className = `px-1.5 py-0.5 rounded-full text-xs ${getTagColor(tag).replace('bg-','bg-').replace('-500','-200')} ${getTagColor(tag).replace('bg-','text-').replace('-500','-800')}`;
+                tagEl.textContent = tag;
+                tagsContainer.appendChild(tagEl);
+            });
+            metaContainer.appendChild(tagsContainer);
+        }
+        bottomRow.append(previewSpan, metaContainer);
+
+        li.append(topRow, bottomRow);
+        
+        const performTag = (e) => { e.stopPropagation(); mobileMenu.classList.add('hidden'); renderTagModal(t.id); modalAction('tagModal', 'open'); };
+        const performEdit = (e) => { e.stopPropagation(); mobileMenu.classList.add('hidden'); titleSpan.classList.add('hidden'); hoverControls.classList.add('hidden'); mobileMenuContainer.classList.add('hidden'); titleInput.classList.remove('hidden'); titleInput.focus(); titleInput.select(); };
+        const performDelete = (e) => { e.stopPropagation(); mobileMenu.classList.add('hidden'); if (confirm(`Are you sure you want to delete "${t.title}"?`)) { const index = state.threads.findIndex(th => th.id === t.id); if (index > -1) state.threads.splice(index, 1); if (state.currentThread === t.id) { state.currentThread = state.threads.length > 0 ? state.threads[0].id : null; loadThread(); } saveState(); renderSidebar(filter); } };
+        
+        const createButton = (icon, title, clickHandler, extraClasses = '') => { const btn = document.createElement('button'); btn.className = `rounded-full p-1.5 text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 focus-ring ${extraClasses}`; btn.title = title; btn.innerHTML = icon; btn.onclick = clickHandler; return btn; };
+        const createMenuItem = (text, clickHandler, extraClasses = '') => { const item = document.createElement('button'); item.className = `w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 ${extraClasses}`; item.textContent = text; item.onclick = clickHandler; return item; };
+        
+        const tagIcon = '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>';
+        const editIcon = '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>';
+        const deleteIcon = '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
+        
+        hoverControls.append( createButton(tagIcon, 'Assign Labels', performTag), createButton(editIcon, 'Rename Chat', performEdit), createButton(deleteIcon, 'Delete Chat', performDelete, 'hover:!bg-red-100 hover:!text-red-500 dark:hover:!bg-red-500/20 dark:hover:!text-red-400'));
+        
+        const menuContent = mobileMenu.firstElementChild;
+        // Add detailed info to mobile menu
+        if (lastMessage?.timestamp) {
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'px-4 pt-2 pb-1 border-b border-gray-200 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400';
+            infoDiv.innerHTML = `<div>${new Date(lastMessage.timestamp).toLocaleString()}</div><div class="mt-1">Cost: $${(t.cost || 0).toFixed(5)}</div>`;
+            menuContent.appendChild(infoDiv);
+        }
+        menuContent.append( createMenuItem('Assign Labels', performTag), createMenuItem('Rename', performEdit), createMenuItem('Delete', performDelete, 'text-red-700 dark:text-red-400'));
+
+        const closeMenuHandler = (event) => { if (!mobileMenu.contains(event.target) && !mobileMenuBtn.contains(event.target)) { mobileMenu.classList.add('hidden'); document.removeEventListener('click', closeMenuHandler, true); } };
+        mobileMenuBtn.onclick = (e) => { e.stopPropagation(); const isHidden = mobileMenu.classList.contains('hidden'); document.querySelectorAll('.thread-context-menu').forEach(m => m.classList.add('hidden')); if (isHidden) { mobileMenu.classList.remove('hidden'); document.addEventListener('click', closeMenuHandler, true); } };
+
+        li.onclick = (e) => { if (e.target.closest('button')) return; state.currentThread = t.id; saveState(); loadThread(); renderSidebar(filter); $('sidebar').classList.remove('open'); };
+        
+        const saveEdit = () => { const newTitle = titleInput.value.trim(); if (newTitle && newTitle !== t.title) { t.title = newTitle; saveState(); } renderSidebar(filter); };
+        titleInput.onblur = saveEdit;
+        titleInput.onkeydown = (e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') renderSidebar(filter); };
+
+        ul.appendChild(li);
     });
 }
 
-// --- CORRECTED: Main Model Selector now groups models ---
-async function populateModels() {
-    const box = $('modelList');
-    box.innerHTML = `<div class="flex justify-center items-center gap-2 text-gray-400"><div class="loader"></div><span>Checking model availability...</span></div>`;
-    
-    const availableBaseAliases = new Set([...availableApiModelIds].map(id => getBaseAlias(id)));
-    box.innerHTML = '';
-    
-    const capabilityColors = { 'Vision': 'bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-300', 'Web Search': 'bg-purple-200 text-purple-800 dark:bg-purple-900 dark:text-purple-300', 'Data Analysis': 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300', 'Fast': 'bg-teal-200 text-teal-800 dark:bg-teal-900 dark:text-teal-300', 'Powerful': 'bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300', 'Reasoning': 'bg-indigo-200 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300', 'Balanced': 'bg-pink-200 text-pink-800 dark:bg-pink-900 dark:text-pink-300', 'Legacy': 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-300', 'Text-only': 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-300' };
+function renderTagSlider() {
+    const container = $('tagSliderContainer');
+    const slider = $('tagSlider');
+    const searchInput = $('chatSearch');
 
-    const enabledAndGrouped = Object.entries(MODEL_DETAILS)
-        .filter(([alias, _]) => state.enabledModels.includes(alias))
-        .reduce((acc, [alias, details]) => {
-            const group = details.group || 'Other';
-            if (!acc[group]) acc[group] = [];
-            acc[group].push([alias, details]);
-            return acc;
-        }, {});
+    slider.innerHTML = '';
+    const allTags = state.allTags || [];
 
-    if (Object.keys(enabledAndGrouped).length === 0) {
-        box.innerHTML = `<div class="text-center text-gray-500 p-4">No models enabled. Please visit "Full Settings" -> "Manage Available Models" to enable some.</div>`;
+    if (allTags.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    container.classList.remove('hidden');
+
+    const currentFilter = searchInput.value.toLowerCase();
+    const isTagFilterActive = currentFilter.startsWith('tag:') || currentFilter.startsWith('#');
+    const activeTag = isTagFilterActive ? currentFilter.replace(/^(tag:|#)/, '') : null;
+
+    // "All" button
+    const allBtn = document.createElement('button');
+    allBtn.className = `flex-shrink-0 px-3 py-1 text-xs rounded-full transition-colors focus-ring ${!isTagFilterActive ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`;
+    allBtn.textContent = 'All';
+    allBtn.onclick = (e) => {
+        e.stopPropagation();
+        searchInput.value = '';
+        renderSidebar('');
+        searchInput.focus();
+    };
+    slider.appendChild(allBtn);
+
+    // Individual tag buttons
+    allTags.sort().forEach(tag => {
+        const btn = document.createElement('button');
+        const filterValue = `tag:${tag}`;
+        const isActive = activeTag === tag;
+        
+        btn.className = `flex-shrink-0 px-3 py-1 text-xs rounded-full transition-colors focus-ring ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`;
+        btn.textContent = tag;
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            searchInput.value = filterValue;
+            renderSidebar(filterValue);
+            searchInput.focus();
+        };
+        slider.appendChild(btn);
+    });
+}
+
+function renderSidebar(filter = $('chatSearch').value) {
+    renderThreads(filter);
+    renderTagSlider();
+}
+
+function loadThread() { $('chatView').innerHTML = ''; const th = state.threads.find(x => x.id === state.currentThread); if (!th) { updateCostUI(0, 0); $('chatView').innerHTML = '<div class="h-full flex items-center justify-center text-gray-400">Select a chat or start a new one.</div>'; return; } th.messages.forEach((m, index) => addMsg(m, index)); updateCostUI(0, th.cost || 0); }
+function newThread() { showView('chatView'); const id = Date.now().toString(); state.threads.unshift({ id, title: 'New Chat', messages: [], cost: 0, tags: [] }); state.currentThread = id; $('userInput').value = ''; attachedImages = []; renderImagePreviews(); updateSendButton(); saveState(); renderSidebar(); loadThread(); }
+function addMsg(message, index) {
+    const chat = $('chatView');
+    const div = document.createElement('div');
+    let innerHTML = '';
+
+    if (message.role === 'system') {
+        innerHTML = `<div class="text-center text-xs text-gray-400 p-2 my-2 border-t border-b dark:border-gray-700 flex items-center justify-center gap-2">${md(message.content)}</div>`;
+    } else if (message.role === 'user') {
+        let textContent = '', imageHTML = '';
+        if (Array.isArray(message.content)) {
+            message.content.forEach(p => {
+                if (p.type === 'text') textContent = p.text;
+                if (p.type === 'image_url') imageHTML += `<img src="${p.image_url.url}" class="max-w-xs rounded-lg mt-2" alt="User attachment">`;
+            });
+        } else {
+            textContent = message.content;
+        }
+        
+        div.className = 'flex justify-end';
+        div.id = `msg-container-${index}`; 
+        innerHTML = `<div class="relative group flex items-start"><div class="msg-actions absolute right-full top-1 mr-2 flex items-center gap-1 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"><button class="edit-msg-btn rounded-full p-1 text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 focus-ring" title="Edit & Resubmit"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg></button></div><div id="user-bubble-${index}" class="ml-auto bg-blue-600 text-white rounded-lg p-3 max-w-xl inline-block">${md(textContent)}${imageHTML}</div></div>`;
+    } else { // Assistant
+        innerHTML = `<div class="flex items-start gap-2.5"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,9A41,41,0,0,0,9,50a41,41,0,0,0,41,41,40.7,40.7,0,0,0,29.12-12.07l-10-10A25.82,25.82,0,0,1,50,75.82,25.82,25.82,0,1,1,75.82,50H63.18a13.18,13.18,0,1,0-13.18,13.18V50A13.18,13.18,0,1,0,50,36.82,13.18,13.18,0,0,0,36.82,50H50A25.82,25.82,0,0,1,50,9Z' fill='%232563eb'/%3E%3C/svg%3E" class="h-7 w-7 rounded-full flex-shrink-0" alt="AI Avatar"><div class="relative group bg-gray-100 dark:bg-gray-800 rounded-lg p-3 max-w-xl inline-block" id="msg-${index}"><div class="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">${md(message.content)}</div><div class="msg-actions absolute -bottom-4 right-2 flex items-center gap-1 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"><button class="speak-btn rounded-full p-1 text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 focus-ring" title="Play/Stop Audio"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg></button><button class="regen-btn rounded-full p-1 text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 focus-ring" title="Regenerate Response"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></svg></button></div></div></div>`;
+    }
+    div.innerHTML = innerHTML;
+    chat.appendChild(div);
+
+    if (message.role === 'assistant') {
+        div.querySelector('.speak-btn').onclick = (e) => toggleTTS(message.content, e.currentTarget);
+        div.querySelector('.regen-btn').onclick = () => regenerateResponse(index);
+    }
+    if (message.role === 'user') {
+        const editBtn = div.querySelector('.edit-msg-btn');
+        if (editBtn) {
+            editBtn.onclick = (e) => { e.stopPropagation(); showEditUI(state.currentThread, index); };
+        }
+    }
+}
+function updateCostUI(last, total) { $('liveCost').textContent = `≈$${total.toFixed(5)}`; }
+async function regenerateResponse(assistantMsgIndex) { const th = state.threads.find(x => x.id === state.currentThread); if (!th || assistantMsgIndex === 0) return; th.cost -= (th.messages[assistantMsgIndex]?.cost || 0); th.messages.splice(assistantMsgIndex); loadThread(); await sendMsg(null, { isRegen: true }); }
+function showEditUI(threadId, messageIndex) {
+    const thread = state.threads.find(t => t.id === threadId);
+    if (!thread) return;
+    const message = thread.messages[messageIndex];
+    const originalText = Array.isArray(message.content) ? (message.content.find(p => p.type === 'text')?.text || '') : message.content;
+    const messageContainer = $(`msg-container-${messageIndex}`);
+    if (messageContainer) {
+        messageContainer.innerHTML = `<div class="w-full"><textarea id="edit-textarea-${messageIndex}" class="w-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm p-2 focus:border-blue-500 focus:ring-blue-500">${originalText}</textarea><div class="flex justify-end gap-2 mt-2"><button id="cancel-edit-${messageIndex}" class="text-sm bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg px-3 py-1 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 focus-ring">Cancel</button><button id="save-edit-${messageIndex}" class="text-sm bg-blue-600 text-white font-semibold rounded-lg px-3 py-1 transition-colors hover:bg-blue-700 focus-ring">Save & Submit</button></div></div>`;
+        $(`save-edit-${messageIndex}`).onclick = () => saveAndResubmit(threadId, messageIndex);
+        $(`cancel-edit-${messageIndex}`).onclick = () => loadThread();
+        $(`edit-textarea-${messageIndex}`).focus();
+    }
+}
+async function saveAndResubmit(threadId, messageIndex) {
+    const thread = state.threads.find(t => t.id === threadId);
+    if (!thread) return;
+    const newText = $(`edit-textarea-${messageIndex}`).value.trim();
+    if (!newText) { showBanner("Cannot submit an empty message.", 'error', 3000); return; }
+    const messageToUpdate = thread.messages[messageIndex];
+    if (Array.isArray(messageToUpdate.content)) {
+        const textPart = messageToUpdate.content.find(p => p.type === 'text');
+        if (textPart) { textPart.text = newText; }
+    } else {
+        messageToUpdate.content = newText;
+    }
+    thread.messages.splice(messageIndex + 1);
+    let newCost = 0;
+    thread.messages.forEach(msg => { if(msg.cost) newCost += msg.cost; });
+    thread.cost = newCost;
+    saveState();
+    loadThread(); 
+    await sendMsg(null, { isRegen: true });
+}
+function handleFileAttachment(inputElement) { 
+    if (!inputElement.files) return;
+    for(const file of inputElement.files) {
+        if (file) { 
+            const reader = new FileReader(); 
+            reader.onload = (re) => { 
+                attachedImages.push({ data: re.target.result }); 
+                renderImagePreviews(); 
+                updateSendButton(); 
+            }; 
+            reader.readAsDataURL(file); 
+        } 
+    }
+    inputElement.value = null; 
+}
+function renderImagePreviews() { const container = $('imagePreviews'); container.innerHTML = ''; attachedImages.forEach((img, index) => { const div = document.createElement('div'); div.className = 'relative'; div.innerHTML = `<img src="${img.data}" class="h-16 w-16 object-cover rounded-md"><button class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">×</button>`; div.querySelector('button').onclick = () => { attachedImages.splice(index, 1); renderImagePreviews(); updateSendButton(); }; container.appendChild(div); }); }
+
+// API & Audio
+async function fetchWithRetry(url, options, retries = 3, delay = 1000) { try { const res = await fetch(url, options); if (!res.ok && (res.status === 429 || res.status >= 500) && retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } return res; } catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, delay)); return fetchWithRetry(url, options, retries - 1, delay * 2); } throw err; } }
+const updateSendButton = () => { const hasText = $('userInput').value.trim().length > 0; const hasImages = attachedImages.length > 0; if (hasText || hasImages) { $('micBtn').classList.add('hidden'); $('sendBtn').classList.remove('hidden'); } else { $('micBtn').classList.remove('hidden'); $('sendBtn').classList.add('hidden'); } };
+async function sendMsg(contentOverride = null, options = {}) {
+    const { isRegen = false } = options;
+    if (!state.apiKey) { showBanner('API Key is not set. Please add it in Settings.', 'error'); return; }
+    const textContent = contentOverride ?? $('userInput').value.trim();
+    if (!isRegen && !textContent && attachedImages.length === 0) return;
+    $('sendBtn').classList.add('hidden');
+    $('loadingSpinner').classList.remove('hidden');
+    let th = state.threads.find(x => x.id === state.currentThread);
+    if (!th) { newThread(); th = state.threads[0]; }
+    if (!isRegen) {
+        let userMessageContent = [];
+        if (textContent) userMessageContent.push({ type: 'text', text: textContent });
+        attachedImages.forEach(img => userMessageContent.push({ type: "image_url", image_url: { url: img.data } }));
+        if (userMessageContent.length === 1 && userMessageContent[0].type === 'text') { userMessageContent = userMessageContent[0].text; }
+        th.messages.push({ role: 'user', content: userMessageContent, timestamp: new Date() });
+        addMsg(th.messages[th.messages.length - 1], th.messages.length - 1);
+        if (th.title === 'New Chat') { th.title = (typeof userMessageContent === 'string' ? userMessageContent.slice(0, 30) : (userMessageContent.find(p => p.type === 'text')?.text.slice(0, 30) || 'Image Query')) || 'New Chat'; }
+    }
+    $('userInput').value = '';
+    attachedImages = [];
+    renderImagePreviews();
+    $('userInput').dispatchEvent(new Event('input'));
+    updateSendButton();
+    const requestBody = { model: state.model, messages: th.messages.map(({cost, timestamp, ...rest}) => rest), temperature: state.temperature, stream: true };
+    if (state.webSearchActive) {
+        requestBody.tools = [{ type: 'web_search' }];
+        toggleWebSearchMode(false);
+    }
+    const inT = await calculateTokens(JSON.stringify(requestBody.messages));
+    let acc = '', outT = 0;
+    const assistantMsgIndex = th.messages.length;
+    th.messages.push({role: 'assistant', content: '...', timestamp: new Date() });
+    addMsg(th.messages[assistantMsgIndex], assistantMsgIndex);
+    const currentMessageDiv = $(`msg-${assistantMsgIndex}`);
+    const contentDiv = currentMessageDiv.querySelector('.prose');
+    try {
+        const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify(requestBody) });
+        if (!res.ok) { const errorPayload = await res.json().catch(() => ({ error: { message: res.statusText } })); const errorMessage = errorPayload.error?.message || `Status: ${res.status}`; throw new Error(`API Error: ${errorMessage}`); }
+        const rd = res.body.getReader(), dec = new TextDecoder();
+        while (true) {
+            const { value, done } = await rd.read();
+            if (done) break;
+            const chunk = dec.decode(value);
+            const lines = chunk.split('\n\n');
+            for(const line of lines){
+                if (line.startsWith('data: ')) {
+                    const data = line.substring(6);
+                    if (data.trim() === '[DONE]') continue;
+                    try { const parsed = JSON.parse(data); const delta = parsed.choices[0].delta; if (delta.content) { acc += delta.content; contentDiv.innerHTML = md(acc); } } catch (e) { console.warn("Stream parsing error", e); }
+                }
+            }
+        }
+        outT = await calculateTokens(acc);
+        const cost = costOf(state.model, inT, outT);
+        th.cost = (th.cost || 0) + cost;
+        const newAssistantMsg = { role: 'assistant', content: acc, cost, timestamp: new Date() };
+        th.messages[assistantMsgIndex] = newAssistantMsg;
+        contentDiv.innerHTML = md(acc);
+        if (state.autoRead && !isRegen) { toggleTTS(newAssistantMsg.content, currentMessageDiv.querySelector('.speak-btn')); }
+    } catch (err) { console.error(err); th.messages[assistantMsgIndex].content = `⚠️ Error: ${err.message}`; contentDiv.innerHTML = md(`⚠️ Error: ${err.message}`); } finally { $('loadingSpinner').classList.add('hidden'); updateSendButton(); saveState(); renderSidebar(); updateCostUI(0, th.cost); }
+}
+async function toggleTTS(text, btn) { if (currentAudioPlayer && !currentAudioPlayer.paused) { currentAudioPlayer.pause(); return; } btn.innerHTML = `<div class="loader"></div>`; const playIcon = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>'; const stopIcon = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18V6h2v12H6zm8-12v12h2V6h-2z"/></svg>'; const resetUI = () => { currentAudioPlayer = null; btn.innerHTML = playIcon; }; if (state.ttsProvider === 'browser') { if (speechSynthesis.speaking) speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.onstart = () => btn.innerHTML = stopIcon; u.onend = resetUI; speechSynthesis.speak(u); } else { try { const res = await fetchWithRetry('https://api.openai.com/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey }, body: JSON.stringify({ model: 'tts-1', input: text, voice: state.openaiVoice }) }); if (!res.ok) throw new Error('TTS API request failed'); const blob = await res.blob(); currentAudioPlayer = new Audio(URL.createObjectURL(blob)); currentAudioPlayer.play(); btn.innerHTML = stopIcon; currentAudioPlayer.onended = resetUI; currentAudioPlayer.onpause = resetUI; } catch (e) { showBanner('Failed to play OpenAI TTS.', 'error', 3000); console.error(e); resetUI(); } } }
+
+function toggleSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        showBanner('Speech recognition is not supported by your browser.', 'error', 4000);
         return;
     }
 
-    const groupOrder = ['Chat', 'Thinking', 'Other'];
-    groupOrder.forEach(groupName => {
-        if (enabledAndGrouped[groupName]) {
-            const header = document.createElement('h3');
-            header.className = 'text-sm font-semibold text-gray-500 dark:text-gray-400 px-3 pt-3';
-            header.textContent = groupName;
-            box.appendChild(header);
+    if (isRecognizing) {
+        recognition.stop();
+        return;
+    }
 
-            enabledAndGrouped[groupName].forEach(([alias, details]) => {
-                const btn = document.createElement('button');
-                const isActive = alias === state.model;
-                const isAvailable = state.apiKey ? availableBaseAliases.has(alias) || availableApiModelIds.has(alias) : true;
-                btn.className = `w-full text-left p-3 rounded-lg focus-trap flex flex-col transition-colors ${ isActive ? 'bg-blue-100 dark:bg-gray-700 ring-2 ring-blue-500' : isAvailable ? 'hover:bg-gray-100 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed' }`;
-                if (!isAvailable) btn.disabled = true;
-                const tagsHTML = (details.capabilities || []).map(tag => `<span class="text-xs font-medium px-2 py-0.5 rounded-full ${capabilityColors[tag] || capabilityColors['Text-only']}">${tag}</span>`).join('');
-                btn.innerHTML = `<div class="flex-1 mb-2"><div class="flex items-center justify-between"><h3 class="font-semibold text-gray-900 dark:text-white">${details.name}</h3>${isAvailable ? '' : '<span class="text-xs text-red-500">Not available with this key</span>'}</div></div><div class="flex flex-col items-start gap-2"><div class="flex flex-wrap gap-1.5">${tagsHTML}</div><div class="text-xs text-gray-500 dark:text-gray-400"><span>Tier: ${details.tier}</span><span class="mx-2 text-gray-300 dark:text-gray-600">|</span><span>Context: ${details.context}</span></div></div>`;
-                btn.onclick = () => { state.model = alias; updateCurrentModelDisplay(); saveState(); updateAttachButtonVisibility(); modalAction('modelModal', 'close'); };
-                box.appendChild(btn);
-            });
+    recognition = new SpeechRecognition();
+    recognition.lang = state.language;
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+        isRecognizing = true;
+        $('micBtn').classList.add('mic-recording');
+    };
+
+    recognition.onend = () => {
+        isRecognizing = false;
+        $('micBtn').classList.remove('mic-recording');
+        $('userInput').dispatchEvent(new Event('input')); 
+        updateSendButton();
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        showBanner(`Mic error: ${event.error}`, 'error', 4000);
+    };
+
+    recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
         }
-    });
+        $('userInput').value = transcript;
+    };
+
+    recognition.start();
 }
 
-$('backToChatBtn').onclick = () => showView('chatView');
-function keyUI(has) { if (!$('apiStatus')) return; const status = $('apiStatus'); status.innerHTML = has ? loc('api_key_saved') + ` <button id="resetKeyBtn" class="ml-2 text-red-500 underline focus-trap">${loc('change')}</button>` : ''; status.classList.toggle('hidden', !has); $('apiKeyContainer').style.display = has ? 'none' : 'block'; if (has) $('resetKeyBtn').onclick = async () => { state.apiKey = ''; await refreshAvailableModels(); saveState(); keyUI(false); $('apiKeyInput').value = ''; showToast(loc('api_key_removed')); }; }
-function setupDataButtons() { $('exportPdfBtn').onclick = async () => { const th = state.threads.find(x => x.id === state.currentThread); if (!th) return showToast('No thread selected.'); showToast('Generating PDF...'); const chatEl = $('chatView'); const canvas = await html2canvas(chatEl, { scale: 2, logging: false, useCORS: true, backgroundColor: state.theme === 'dark' ? '#111827' : '#ffffff' }); const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const pdfWidth = pdf.internal.pageSize.getWidth(); const pdfHeight = pdf.internal.pageSize.getHeight(); const canvasWidth = canvas.width; const canvasHeight = canvas.height; const ratio = canvasWidth / pdfWidth; const imgHeight = canvasHeight / ratio; let heightLeft = imgHeight; let position = 0; pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdfHeight; while (heightLeft > 0) { position = -heightLeft; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdfHeight; } pdf.save(`${th.title.replace(/ /g, '_')}.pdf`); }; $('importBtn').onclick = () => $('importFileInput').click(); $('importFileInput').onchange = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { try { const imported = JSON.parse(re.target.result); if(imported.threads) state = {...state, ...imported}; else if (Array.isArray(imported)) state.threads = imported; else throw new Error("Invalid format"); state.currentThread = state.threads[0]?.id || null; saveState(); renderThreads(); loadThread(); showToast('Import successful!'); } catch(err){ showToast('Import failed: ' + err.message); } }; reader.readAsText(file); } }; $('exportAllBtn').onclick = () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const a = document.createElement('a'); a.href = dataStr; a.download = `chat_export_${Date.now()}.json`; a.click(); showToast('All application data exported.'); }; }
-function renderPrompts() { const listDiv = $('promptList'); listDiv.innerHTML = ''; (state.prompts || []).forEach((p, i) => { const div = document.createElement('div'); div.className = 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center'; div.innerHTML = `<span>${p.name}</span><div class="flex gap-1"><button class="use-prompt bg-blue-500 text-white text-xs px-2 py-1 rounded">Use</button><button class="del-prompt bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button></div>`; div.querySelector('.use-prompt').onclick = () => { ta.value = p.text; modalAction('promptLibraryModal', 'close'); updateSendButton(); }; div.querySelector('.del-prompt').onclick = () => { state.prompts.splice(i, 1); saveState(); renderPrompts(); }; listDiv.appendChild(div); }); }
-$('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(), text = ta.value.trim(); if (name && text) { if(!state.prompts) state.prompts = []; state.prompts.push({ name, text }); $('newPromptName').value = ''; saveState(); renderPrompts(); } };
+function toggleWebSearchMode(isActive) {
+    state.webSearchActive = isActive;
+    $('activeModeIndicator').classList.toggle('hidden', !isActive);
+    $('activeModeIndicator').classList.toggle('flex', isActive);
+    $('actionsPopup').classList.remove('open');
+    saveState();
+}
+
+// Settings, Modals & Data I/O
+function setupModal(modalId, openBtnId, beforeOpen) { const openBtn = $(openBtnId); if(openBtn) { openBtn.onclick = () => { if (beforeOpen) beforeOpen(); modalAction(modalId, 'open'); }; } const closeBtn = $(`close${modalId.charAt(0).toUpperCase() + modalId.slice(1)}`); if(closeBtn) closeBtn.onclick = () => modalAction(modalId, 'close'); }
+
+function renderQuickSettings() {
+    const content = $('quickSettingsContent');
+    content.innerHTML = $('quick-settings-template').innerHTML;
+
+    const tempInput = content.querySelector('#tempInput');
+    const tempLabel = content.querySelector('#tempLabel');
+    const themeToggle = content.querySelector('#themeToggle');
+    const ttsToggle = content.querySelector('#ttsToggle');
+    const goToFullSettingsBtn = content.querySelector('#goToFullSettingsBtn');
+    const goToLogsBtn = content.querySelector('#goToLogsBtn');
+
+    tempInput.value = state.temperature;
+    tempLabel.textContent = state.temperature;
+    themeToggle.checked = state.theme === 'dark';
+    ttsToggle.checked = state.autoRead;
+
+    tempInput.oninput = e => { tempLabel.textContent = e.target.value; };
+    tempInput.onchange = e => { state.temperature = +e.target.value; saveState(); };
+    themeToggle.onchange = e => { state.theme = e.target.checked ? 'dark' : 'light'; document.documentElement.classList.toggle('dark', e.target.checked); saveState(); };
+    ttsToggle.onchange = e => { state.autoRead = e.target.checked; saveState(); };
+    
+    goToFullSettingsBtn.onclick = () => { modalAction('settingsModal', 'close'); renderFullSettingsPage(); showView('settingsPage'); };
+    goToLogsBtn.onclick = () => { modalAction('settingsModal', 'close'); renderLogsPage(); showView('logsPage'); };
+    localizeUI();
+}
+
+function renderFullSettingsPage() {
+    const content = $('fullSettingsContent');
+    content.innerHTML = $('full-settings-template').innerHTML;
+
+    const ttsProviderSelect = content.querySelector('#ttsProvider');
+    const openaiVoiceSelect = content.querySelector('#openaiVoice');
+    const openaiVoiceContainer = content.querySelector('#openaiVoiceContainer');
+    const langSelect = content.querySelector('#languageSelect');
+
+    content.querySelector('#apiKeyInput').value = state.apiKey;
+    keyUI(!!state.apiKey, content); 
+
+    ['browser', 'openai'].forEach(p => ttsProviderSelect.add(new Option(p.charAt(0).toUpperCase() + p.slice(1), p, p === state.ttsProvider, p === state.ttsProvider)));
+    ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].forEach(v => openaiVoiceSelect.add(new Option(v.charAt(0).toUpperCase() + v.slice(1), v, v === state.openaiVoice, v === state.openaiVoice)));
+    openaiVoiceContainer.classList.toggle('hidden', state.ttsProvider !== 'openai');
+    Object.keys(L).forEach(lang => langSelect.add(new Option(lang.toUpperCase(), lang, lang === state.language, lang === state.language)));
+
+    content.querySelector('#saveKeyBtn').onclick = async () => { const k = content.querySelector('#apiKeyInput').value.trim(); if (k) { state.apiKey = k; await refreshAvailableModels(); saveState(); keyUI(true, content); showBanner(loc('api_key_saved'), 'success', 3000); }};
+    ttsProviderSelect.onchange = e => { state.ttsProvider = e.target.value; openaiVoiceContainer.classList.toggle('hidden', e.target.value !== 'openai'); saveState(); };
+    openaiVoiceSelect.onchange = e => { state.openaiVoice = e.target.value; saveState(); };
+    langSelect.onchange = e => { state.language = e.target.value; saveState(); localizeUI(); renderFullSettingsPage(); };
+    
+    setupDataButtons(content);
+    setupModal('modelSettingsModal', 'manageModelsBtn', renderModelSettings);
+    content.querySelector('#advancedSettingsBtn').onclick = () => { renderAdvancedSettingsPage(); showView('advancedSettingsPage'); };
+    setupModal('tosModal', 'tosOpener');
+    localizeUI();
+}
+function renderModelSettings() { const list = $('modelSettingsList'); list.innerHTML = ''; const groupedModels = Object.entries(MODEL_DETAILS).reduce((acc, [alias, details]) => { const group = details.group || 'Other'; if (!acc[group]) acc[group] = []; acc[group].push([alias, details]); return acc; }, {}); const groupOrder = ['Chat', 'Thinking', 'Other']; groupOrder.forEach(groupName => { if (groupedModels[groupName]) { const header = document.createElement('h3'); header.className = 'text-sm font-semibold text-gray-500 dark:text-gray-400 mt-4 first:mt-0'; header.textContent = groupName; list.appendChild(header); groupedModels[groupName].forEach(([alias, details]) => { const isChecked = state.enabledModels.includes(alias); const label = document.createElement('label'); label.className = 'flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'; label.innerHTML = `<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded focus-ring" ${isChecked ? 'checked' : ''}><span class="font-semibold">${details.name}</span>`; const checkbox = label.querySelector('input'); checkbox.onchange = () => { if (checkbox.checked) { if (!state.enabledModels.includes(alias)) state.enabledModels.push(alias); } else { state.enabledModels = state.enabledModels.filter(m => m !== alias); if (state.model === alias && state.enabledModels.length > 0) { state.model = state.enabledModels[0]; updateCurrentModelDisplay(); } } saveState(); }; list.appendChild(label); }); } }); }
+function renderAdvancedSettingsPage() { 
+    const content = $('advancedSettingsContent');
+    content.innerHTML = '';
+    const features = [ 
+        { title: 'Service Worker & Caching', desc: 'Allows the app to be cached for faster loads and potential offline use.' }, 
+        { title: 'Accurate Tokenizer & Costing', desc: 'Downloads necessary files for precise token counting and cost estimation.' }, 
+        { title: 'PDF Export with Images', desc: 'Allows exporting chats to PDF, including web images.' },
+        { title: 'Speech-to-Text (Microphone)', desc: 'Allows transcribing your voice into the text input using the browser\'s built-in speech recognition.' }
+    ]; 
+    features.forEach(feature => { 
+        const statusText = isLocalFile ? 'Disabled (Requires Web Server)' : 'Enabled'; 
+        const statusColor = isLocalFile ? 'text-yellow-500' : 'text-green-500'; 
+        const div = document.createElement('div'); 
+        div.className = 'p-3 bg-gray-100 dark:bg-gray-800 rounded-lg'; 
+        div.innerHTML = `<div class="flex justify-between items-center"><span class="font-semibold">${feature.title}</span><span class="text-sm font-medium ${statusColor}">${statusText}</span></div><p class="text-xs text-gray-500 mt-2">${feature.desc}</p>`; 
+        content.appendChild(div); 
+    }); 
+}
+async function populateModels() { const box = $('modelList'); box.innerHTML = `<div class="flex justify-center items-center gap-2 text-gray-400"><div class="loader"></div><span>Checking model availability...</span></div>`; const availableBaseAliases = new Set([...availableApiModelIds].map(id => getBaseAlias(id))); box.innerHTML = ''; const capabilityColors = { 'Vision': 'bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-300', 'Web Search': 'bg-purple-200 text-purple-800 dark:bg-purple-900 dark:text-purple-300', 'Data Analysis': 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300', 'Fast': 'bg-teal-200 text-teal-800 dark:bg-teal-900 dark:text-teal-300', 'Powerful': 'bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300', 'Reasoning': 'bg-indigo-200 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300', 'Advanced Reasoning': 'bg-violet-200 text-violet-800 dark:bg-violet-900 dark:text-violet-300', 'Balanced': 'bg-pink-200 text-pink-800 dark:bg-pink-900 dark:text-pink-300', 'Legacy': 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-300', 'Text-only': 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-300' }; const enabledAndGrouped = Object.entries(MODEL_DETAILS).filter(([alias, _]) => state.enabledModels.includes(alias)).reduce((acc, [alias, details]) => { const group = details.group || 'Other'; if (!acc[group]) acc[group] = []; acc[group].push([alias, details]); return acc; }, {}); if (Object.keys(enabledAndGrouped).length === 0) { box.innerHTML = `<div class="text-center text-gray-500 p-4">No models enabled. Please visit "Full Settings" -> "Manage Available Models" to enable some.</div>`; return; } const groupOrder = ['Chat', 'Thinking', 'Other']; groupOrder.forEach(groupName => { if (enabledAndGrouped[groupName]) { const header = document.createElement('h3'); header.className = 'text-base font-semibold text-gray-800 dark:text-gray-200 px-1 pt-4 first:pt-0'; header.textContent = groupName; box.appendChild(header); enabledAndGrouped[groupName].forEach(([alias, details]) => { const btn = document.createElement('button'); const isActive = alias === state.model; const isAvailable = state.apiKey ? availableBaseAliases.has(alias) || availableApiModelIds.has(alias) : true; btn.className = `w-full text-left p-3 rounded-lg focus-ring flex flex-col gap-2 transition-colors ${ isActive ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-500' : isAvailable ? 'hover:bg-gray-100 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed' }`; if (!isAvailable) btn.disabled = true; const tagsHTML = (details.capabilities || []).map(tag => `<span class="text-xs font-medium px-2 py-0.5 rounded-full ${capabilityColors[tag] || capabilityColors['Text-only']}">${tag}</span>`).join(''); btn.innerHTML = `<div class="flex items-center justify-between"><h4 class="font-semibold text-gray-900 dark:text-white">${details.name}</h4>${isAvailable ? '' : '<span class="text-xs text-red-500 dark:text-red-400 font-medium">Not available with this key</span>'}</div><div class="flex flex-wrap gap-1.5">${tagsHTML}</div><div class="text-xs text-gray-500 dark:text-gray-400"><span>Tier: ${details.tier}</span><span class="mx-2 text-gray-300 dark:text-gray-600">|</span><span>Context: ${details.context}</span></div>`; btn.onclick = () => { state.model = alias; updateCurrentModelDisplay(); saveState(); updateFeatureVisibility(); modalAction('modelModal', 'close'); }; box.appendChild(btn); }); } }); }
+
+function keyUI(has, scope = document) { const status = scope.querySelector('#apiStatus'); if (!status) return; const apiKeyContainer = scope.querySelector('#apiKeyContainer'); const apiKeyInput = scope.querySelector('#apiKeyInput'); status.innerHTML = has ? loc('api_key_saved') + ` <button id="resetKeyBtn" class="ml-2 text-red-500 underline focus-ring">${loc('change')}</button>` : ''; status.classList.toggle('hidden', !has); apiKeyContainer.style.display = has ? 'none' : 'block'; if (has) { scope.querySelector('#resetKeyBtn').onclick = async () => { state.apiKey = ''; await refreshAvailableModels(); saveState(); keyUI(false, scope); if (apiKeyInput) apiKeyInput.value = ''; showBanner(loc('api_key_removed'), 'success', 3000); }; } }
+function renderLogsPage() { const content = $('logsContent'); content.innerHTML = ''; if (logStore.length === 0) { content.innerHTML = '<div>No log entries yet.</div>'; return; } logStore.forEach(log => { const div = document.createElement('div'); const color = log.type === 'error' ? 'text-red-400' : log.type === 'warn' ? 'text-yellow-400' : 'text-gray-400'; div.className = `border-b border-gray-700 pb-1`; div.innerHTML = `<span class="font-bold ${color}">${log.timestamp.toLocaleTimeString()} [${log.type.toUpperCase()}]</span><pre class="whitespace-pre-wrap text-gray-300">${log.message}</pre>`; content.appendChild(div); }); }
+function setupDataButtons(scope = document) { scope.querySelector('#exportPdfBtn').onclick = async () => { const th = state.threads.find(x => x.id === state.currentThread); if (!th) return showBanner('No thread selected.', 'error', 3000); showBanner('Generating PDF...', 'success', 2000); const chatEl = $('chatView'); chatEl.querySelectorAll('.msg-actions').forEach(el => el.style.opacity = '0'); try { const canvas = await html2canvas(chatEl, { scale: 2, logging: false, useCORS: true, backgroundColor: state.theme === 'dark' ? '#030712' : '#ffffff' }); const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }); const pdfWidth = pdf.internal.pageSize.getWidth(); const pdfHeight = pdf.internal.pageSize.getHeight(); const canvasWidth = canvas.width; const canvasHeight = canvas.height; const ratio = canvasWidth / pdfWidth; const imgHeight = canvasHeight / ratio; pdf.setFontSize(16); pdf.text(`Chat Export: ${th.title}`, 14, 15); pdf.setFontSize(10); pdf.setTextColor(150); pdf.text(`Exported on: ${new Date().toLocaleString()}`, 14, 22); let heightLeft = imgHeight; let position = 25; pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= (pdfHeight - position); while (heightLeft > 0) { position = -heightLeft; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight); heightLeft -= pdfHeight; } pdf.save(`${th.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`); showBanner('PDF Generated!', 'success', 3000); } catch (err) { console.error("PDF Generation Error:", err); showBanner('PDF generation failed. See console for details.', 'error'); } finally { chatEl.querySelectorAll('.msg-actions').forEach(el => el.style.opacity = ''); } }; scope.querySelector('#importBtn').onclick = () => $('importFileInput').click(); $('importFileInput').onchange = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (re) => { try { const imported = JSON.parse(re.target.result); if(imported.threads) state = {...state, ...imported}; else if (Array.isArray(imported)) state.threads = imported; else throw new Error("Invalid format"); state.currentThread = state.threads[0]?.id || null; saveState(); renderSidebar(); loadThread(); showBanner('Import successful!', 'success', 3000); } catch(err){ showBanner('Import failed: ' + err.message, 'error'); } }; reader.readAsText(file); } }; }
+function renderPrompts() { const listDiv = $('promptList'); listDiv.innerHTML = ''; (state.prompts || []).forEach((p, i) => { const div = document.createElement('div'); div.className = 'p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center'; div.innerHTML = `<span>${p.name}</span><div class="flex gap-1"><button class="use-prompt bg-blue-600 text-white font-semibold rounded-md px-2 py-1 text-xs transition-colors hover:bg-blue-700 focus-ring">Use</button><button class="del-prompt bg-red-600 text-white font-semibold rounded-md px-2 py-1 text-xs transition-colors hover:bg-red-700 focus-ring">Del</button></div>`; div.querySelector('.use-prompt').onclick = () => { $('userInput').value = p.text; modalAction('promptLibraryModal', 'close'); updateSendButton(); }; div.querySelector('.del-prompt').onclick = () => { state.prompts.splice(i, 1); saveState(); renderPrompts(); }; listDiv.appendChild(div); }); }
+$('savePromptBtn').onclick = () => { const name = $('newPromptName').value.trim(), text = $('userInput').value.trim(); if (name && text) { if(!state.prompts) state.prompts = []; state.prompts.push({ name, text }); $('newPromptName').value = ''; saveState(); renderPrompts(); } };
+function renderTagModal(threadId) { const thread = state.threads.find(t => t.id === threadId); if (!thread) return; $('tagModalTitle').textContent = `Assign Labels to "${thread.title}"`; const content = $('tagModalContent'); content.innerHTML = `<div id="assignTagsList" class="flex flex-wrap gap-2"></div><div class="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700"><button id="cancelTagBtn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg px-4 py-2 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 focus-ring">Cancel</button><button id="applyTagBtn" class="bg-blue-600 text-white font-semibold rounded-lg px-4 py-2 transition-colors hover:bg-blue-700 focus-ring">Apply</button></div>`; const assignList = $('assignTagsList'); if (state.allTags.length === 0) { assignList.innerHTML = `<p class="text-sm text-gray-500">No labels created yet. Go to "Manage Labels" in the sidebar to create some.</p>`; } else { (state.allTags || []).sort().forEach(tag => { const isChecked = thread.tags?.includes(tag); const label = document.createElement('label'); label.className = `flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700'}`; label.innerHTML = `<input type="checkbox" class="hidden" data-tag="${tag}" ${isChecked ? 'checked' : ''}><span>${tag}</span>`; const checkbox = label.querySelector('input'); checkbox.onchange = () => { label.classList.toggle('bg-blue-600', checkbox.checked); label.classList.toggle('text-white', checkbox.checked); label.classList.toggle('bg-gray-200', !checkbox.checked); label.classList.toggle('dark:bg-gray-700', !checkbox.checked); }; assignList.appendChild(label); }); } $('cancelTagBtn').onclick = () => modalAction('tagModal', 'close'); $('applyTagBtn').onclick = () => { const selectedTags = []; content.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => { selectedTags.push(checkbox.dataset.tag); }); const threadToUpdate = state.threads.find(t => t.id === threadId); if (threadToUpdate) { threadToUpdate.tags = selectedTags; } saveState(); renderSidebar(); modalAction('tagModal', 'close'); }; }
+function renderManageTagsPage() { const content = $('manageTagsContent'); content.innerHTML = `<div class="mb-4"><h3 class="text-lg font-medium mb-2">Create New Label</h3><div class="flex gap-2"><input id="newLabelInput" placeholder="New label name..." class="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm flex-1 focus:border-blue-500 focus:ring-blue-500 focus-ring"><button id="createLabelBtn" class="bg-blue-600 text-white font-semibold rounded-lg px-4 py-2 transition-colors hover:bg-blue-700 focus-ring">Create</button></div></div><div id="allLabelsList" class="space-y-2"></div>`; const list = $('allLabelsList'); (state.allTags || []).sort().forEach(tag => { const itemCount = state.threads.filter(t => t.tags?.includes(tag)).length; const li = document.createElement('div'); li.className = 'flex items-center p-3 rounded-lg bg-gray-100 dark:bg-gray-800'; const color = getTagColor(tag); li.innerHTML = `<span class="h-5 w-5 rounded-full ${color} mr-4 flex-shrink-0"></span><div class="flex-1"><div class="font-semibold">${tag}</div><div class="text-xs text-gray-500 dark:text-gray-400">${itemCount} item${itemCount !== 1 ? 's' : ''}</div></div><button class="delete-label rounded-full p-1.5 text-gray-500 dark:text-gray-400 transition-colors hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-500/20 dark:hover:text-red-400 focus-ring" data-tag="${tag}">✖</button>`; list.appendChild(li); }); $('createLabelBtn').onclick = () => { const newTag = $('newLabelInput').value.trim(); if (newTag && !state.allTags.includes(newTag)) { state.allTags.push(newTag); saveState(); renderManageTagsPage(); renderSidebar(); } $('newLabelInput').value = ''; }; list.querySelectorAll('.delete-label').forEach(btn => { btn.onclick = () => { const tagToDelete = btn.dataset.tag; if (deleteTagGlobally(tagToDelete)) { renderManageTagsPage(); renderSidebar(); } }; }); }
 
 async function initializeApp() {
-    registerServiceWorker();
-    renderFullSettingsPage();
+    setupLogging();
+    isLocalFile = ['file:', 'content:'].includes(window.location.protocol);
+    if (isLocalFile) { 
+        console.warn("Running from a local file protocol. Web-dependent features will be disabled."); 
+        const micBtn = $('micBtn');
+        micBtn.disabled = true;
+        micBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        micBtn.title = 'Microphone is disabled on local files';
+    }
+    
     await loadState();
+    registerServiceWorker();
+    setupEventHandlers();
+    
+    setupModal('modelModal', 'modelBtn', populateModels);
+    setupModal('settingsModal', 'settingsOpener', renderQuickSettings);
+    setupModal('promptLibraryModal', 'promptLibraryOpener', renderPrompts);
+
+    setupUI();
     showView('chatView');
-    try {
-        await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
-        tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
-    } catch (e) { console.error("Tokenizer failed to load. Using approximation.", e); }
+    
+    console.log("Application Initialized");
+
+    if (!isLocalFile) {
+        try {
+            await window.tiktoken.init((imports) => WebAssembly.instantiate(new URL("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/lite/tiktoken_bg.wasm", import.meta.url), imports));
+            tokenizer = new window.tiktoken.Tiktoken((await(await fetch("https://cdn.jsdelivr.net/npm/@dqbd/tiktoken@1.0.14/encoders/cl100k_base.json")).json()).bpe_ranks,{ "<|endoftext|>": 100257 },"'(?i:[sdmt]|ll|ve|re)|'t|'s|'m|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+");
+            console.log("Tiktoken tokenizer loaded successfully.");
+        } catch (e) {
+            console.error("Tokenizer failed to load. Using approximation.", e);
+        }
+    } else {
+        console.log("Accurate tokenizer is disabled because app is run locally. Using approximation for token counting.");
+    }
 }
 
 initializeApp();
